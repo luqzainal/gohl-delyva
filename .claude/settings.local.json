@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(c:\\Users\\luqma\\Pictures\\Screenshots/**)",
+      "Bash(php artisan migrate:*)",
+      "Read(c:\\Users\\luqma\\Pictures\\Screenshots/**)",
+      "Bash(curl:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

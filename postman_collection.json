@@ -1,0 +1,183 @@
+{
+  "info": {
+    "name": "GoHL Delyva Integration - Backend Testing",
+    "description": "Collection untuk menguji backend Laravel integration antara HighLevel dan Delyva",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "test_location_id",
+      "value": "test_location_123",
+      "type": "string"
+    },
+    {
+      "key": "test_order_id",
+      "value": "test_order_456",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Test All Functions",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/test/all",
+          "host": ["{{base_url}}"],
+          "path": ["test", "all"]
+        },
+        "description": "Test semua fungsi backend sekaligus"
+      }
+    },
+    {
+      "name": "2. Test Credentials API",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"locationId\": \"{{test_location_id}}\",\n  \"apiKey\": \"test_delyva_api_key_456\",\n  \"customerId\": \"test_customer_789\",\n  \"apiSecret\": \"test_secret_abc\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/credentials",
+          "host": ["{{base_url}}"],
+          "path": ["api", "credentials"]
+        },
+        "description": "Test endpoint untuk simpan kredential Delyva"
+      }
+    },
+    {
+      "name": "3. Test Rates Callback",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"rate\": {\n    \"altId\": \"{{test_location_id}}\",\n    \"origin\": {\n      \"address1\": \"Jalan Ampang\",\n      \"city\": \"Kuala Lumpur\",\n      \"state\": \"Kuala Lumpur\",\n      \"zip\": \"50450\",\n      \"country\": \"MY\"\n    },\n    \"destination\": {\n      \"address1\": \"Jalan SS2/24\",\n      \"city\": \"Petaling Jaya\",\n      \"state\": \"Selangor\",\n      \"zip\": \"47300\",\n      \"country\": \"MY\"\n    },\n    \"items\": [\n      {\n        \"name\": \"Test Product A\",\n        \"quantity\": 2,\n        \"grams\": 500\n      },\n      {\n        \"name\": \"Test Product B\",\n        \"quantity\": 1,\n        \"grams\": 1200\n      }\n    ],\n    \"currency\": \"USD\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/shipping/rates/callback",
+          "host": ["{{base_url}}"],
+          "path": ["api", "shipping", "rates", "callback"]
+        },
+        "description": "Test endpoint rates callback yang dipanggil oleh HighLevel"
+      }
+    },
+    {
+      "name": "4. Test Order Webhook",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"OrderCreate\",\n  \"orderId\": \"{{test_order_id}}\",\n  \"locationId\": \"{{test_location_id}}\",\n  \"status\": \"completed\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/webhooks/highlevel",
+          "host": ["{{base_url}}"],
+          "path": ["api", "webhooks", "highlevel"]
+        },
+        "description": "Test webhook order dari HighLevel"
+      }
+    },
+    {
+      "name": "5. Test Individual - Credentials",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/test/credentials",
+          "host": ["{{base_url}}"],
+          "path": ["test", "credentials"]
+        },
+        "description": "Test individual untuk credentials dengan mock data"
+      }
+    },
+    {
+      "name": "6. Test Individual - Rates",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/test/rates",
+          "host": ["{{base_url}}"],
+          "path": ["test", "rates"]
+        },
+        "description": "Test individual untuk rates dengan mock data"
+      }
+    },
+    {
+      "name": "7. Test Individual - Webhook",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/test/webhook",
+          "host": ["{{base_url}}"],
+          "path": ["test", "webhook"]
+        },
+        "description": "Test individual untuk webhook dengan mock data"
+      }
+    },
+    {
+      "name": "8. Test Individual - Process Order",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/test/process-order",
+          "host": ["{{base_url}}"],
+          "path": ["test", "process-order"]
+        },
+        "description": "Test individual untuk process order dengan mock data"
+      }
+    },
+    {
+      "name": "9. Get Orders List",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/webhooks/orders/{{test_location_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["webhooks", "orders", "{{test_location_id}}"]
+        },
+        "description": "Dapatkan senarai orders untuk location"
+      }
+    },
+    {
+      "name": "10. Get Order Details",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/webhooks/orders/{{test_location_id}}/{{test_order_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["webhooks", "orders", "{{test_location_id}}", "{{test_order_id}}"]
+        },
+        "description": "Dapatkan details order tertentu"
+      }
+    }
+  ]
+}

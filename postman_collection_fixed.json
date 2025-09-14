@@ -1,0 +1,176 @@
+{
+  "info": {
+    "name": "GoHL Delyva Integration - FIXED",
+    "description": "Collection yang sudah betul untuk testing backend Laravel",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "ngrok_url", 
+      "value": "https://477ee6c29104.ngrok-free.app",
+      "type": "string"
+    },
+    {
+      "key": "test_location_id",
+      "value": "test_location_123",
+      "type": "string"
+    },
+    {
+      "key": "test_order_id",
+      "value": "test_order_456", 
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "✅ 1. Test Simple All (Browser)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/test/simple-all",
+          "host": ["{{base_url}}"],
+          "path": ["test", "simple-all"]
+        },
+        "description": "Test semua fungsi backend - paling mudah"
+      }
+    },
+    {
+      "name": "✅ 2. Test Credentials API (Fixed)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"locationId\": \"{{test_location_id}}\",\n  \"apiKey\": \"test_delyva_api_key_456\",\n  \"customerId\": \"test_customer_789\",\n  \"apiSecret\": \"test_secret_abc\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/credentials",
+          "host": ["{{base_url}}"],
+          "path": ["api", "credentials"]
+        },
+        "description": "✅ FIXED: Guna /api/credentials (no CSRF)"
+      }
+    },
+    {
+      "name": "✅ 3. Test Rates Callback (Fixed)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"rate\": {\n    \"altId\": \"{{test_location_id}}\",\n    \"origin\": {\n      \"address1\": \"Jalan Ampang\",\n      \"city\": \"Kuala Lumpur\",\n      \"state\": \"Kuala Lumpur\",\n      \"zip\": \"50450\",\n      \"country\": \"MY\"\n    },\n    \"destination\": {\n      \"address1\": \"Jalan SS2/24\",\n      \"city\": \"Petaling Jaya\",\n      \"state\": \"Selangor\",\n      \"zip\": \"47300\",\n      \"country\": \"MY\"\n    },\n    \"items\": [\n      {\n        \"name\": \"Test Product A\",\n        \"quantity\": 2,\n        \"grams\": 500\n      },\n      {\n        \"name\": \"Test Product B\",\n        \"quantity\": 1,\n        \"grams\": 1200\n      }\n    ],\n    \"currency\": \"USD\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/shipping/rates/callback",
+          "host": ["{{base_url}}"],
+          "path": ["api", "shipping", "rates", "callback"]
+        },
+        "description": "✅ FIXED: Guna /api/shipping/rates/callback (no CSRF)"
+      }
+    },
+    {
+      "name": "✅ 4. Test Order Webhook (Fixed)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"OrderCreate\",\n  \"orderId\": \"{{test_order_id}}\",\n  \"locationId\": \"{{test_location_id}}\",\n  \"status\": \"completed\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/webhooks/highlevel",
+          "host": ["{{base_url}}"],
+          "path": ["api", "webhooks", "highlevel"]
+        },
+        "description": "✅ FIXED: Guna /api/webhooks/highlevel (no CSRF)"
+      }
+    },
+    {
+      "name": "🌐 5. Test Ngrok - Credentials",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"locationId\": \"{{test_location_id}}\",\n  \"apiKey\": \"test_delyva_api_key_456\",\n  \"customerId\": \"test_customer_789\",\n  \"apiSecret\": \"test_secret_abc\"\n}"
+        },
+        "url": {
+          "raw": "{{ngrok_url}}/api/credentials",
+          "host": ["{{ngrok_url}}"],
+          "path": ["api", "credentials"]
+        },
+        "description": "Test dengan Ngrok URL untuk HighLevel"
+      }
+    },
+    {
+      "name": "🌐 6. Test Ngrok - Webhook",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"OrderCreate\",\n  \"orderId\": \"{{test_order_id}}\",\n  \"locationId\": \"{{test_location_id}}\",\n  \"status\": \"completed\"\n}"
+        },
+        "url": {
+          "raw": "{{ngrok_url}}/api/webhooks/highlevel",
+          "host": ["{{ngrok_url}}"],
+          "path": ["api", "webhooks", "highlevel"]
+        },
+        "description": "Test webhook dengan Ngrok URL untuk HighLevel"
+      }
+    },
+    {
+      "name": "🌐 7. Test Ngrok - Rates",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"rate\": {\n    \"altId\": \"{{test_location_id}}\",\n    \"origin\": {\n      \"address1\": \"Jalan Ampang\",\n      \"city\": \"Kuala Lumpur\",\n      \"state\": \"Kuala Lumpur\",\n      \"zip\": \"50450\",\n      \"country\": \"MY\"\n    },\n    \"destination\": {\n      \"address1\": \"Jalan SS2/24\",\n      \"city\": \"Petaling Jaya\",\n      \"state\": \"Selangor\",\n      \"zip\": \"47300\",\n      \"country\": \"MY\"\n    },\n    \"items\": [\n      {\n        \"name\": \"Test Product A\",\n        \"quantity\": 2,\n        \"grams\": 500\n      }\n    ],\n    \"currency\": \"USD\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{ngrok_url}}/api/shipping/rates/callback",
+          "host": ["{{ngrok_url}}"],
+          "path": ["api", "shipping", "rates", "callback"]
+        },
+        "description": "Test rates dengan Ngrok URL untuk HighLevel"
+      }
+    }
+  ]
+}
