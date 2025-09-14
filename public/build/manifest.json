@@ -1,0 +1,51 @@
+{
+  "_client-DCNturwH.js": {
+    "file": "assets/client-DCNturwH.js",
+    "name": "client"
+  },
+  "resources/css/app.css": {
+    "file": "assets/app-BcXEqmbU.css",
+    "src": "resources/css/app.css",
+    "isEntry": true,
+    "names": [
+      "app.css"
+    ]
+  },
+  "resources/js/app.tsx": {
+    "file": "assets/app-CGCXbgTG.js",
+    "name": "app",
+    "src": "resources/js/app.tsx",
+    "isEntry": true,
+    "imports": [
+      "_client-DCNturwH.js"
+    ],
+    "dynamicImports": [
+      "resources/js/pages/welcome.tsx"
+    ],
+    "css": [
+      "assets/app-BcXEqmbU.css"
+    ]
+  },
+  "resources/js/pages/welcome.tsx": {
+    "file": "assets/welcome-Daf3E_v5.js",
+    "name": "welcome",
+    "src": "resources/js/pages/welcome.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_client-DCNturwH.js",
+      "resources/js/app.tsx"
+    ],
+    "css": [
+      "assets/app-BcXEqmbU.css"
+    ]
+  },
+  "resources/js/plugin.tsx": {
+    "file": "assets/plugin-l-wdarUO.js",
+    "name": "plugin",
+    "src": "resources/js/plugin.tsx",
+    "isEntry": true,
+    "imports": [
+      "_client-DCNturwH.js"
+    ]
+  }
+}
