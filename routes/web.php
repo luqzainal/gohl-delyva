@@ -211,4 +211,20 @@ Route::prefix('test')->group(function () {
             ]
         ]);
     })->name('test.oauth-callback');
+
+    // Debug OAuth configuration
+    Route::get('oauth-config', function() {
+        return response()->json([
+            'client_id' => config('services.highlevel.client_id') ? 'SET (' . substr(config('services.highlevel.client_id'), 0, 10) . '...)' : 'NOT SET',
+            'client_secret' => config('services.highlevel.client_secret') ? 'SET (' . substr(config('services.highlevel.client_secret'), 0, 8) . '...)' : 'NOT SET',
+            'redirect_uri' => config('services.highlevel.redirect_uri') ?? 'NOT SET',
+            'base_url' => config('services.highlevel.base_url') ?? 'NOT SET',
+            'shared_secret' => config('services.highlevel.shared_secret') ? 'SET' : 'NOT SET',
+            'env_values' => [
+                'HIGHLEVEL_CLIENT_ID' => env('HIGHLEVEL_CLIENT_ID') ? 'SET' : 'NOT SET',
+                'CLIENT_ID' => env('CLIENT_ID') ? 'SET' : 'NOT SET',
+                'HIGHLEVEL_REDIRECT_URI' => env('HIGHLEVEL_REDIRECT_URI') ?? 'NOT SET'
+            ]
+        ]);
+    })->name('test.oauth-config');
 });
