@@ -21,5 +21,6 @@ class VerifyCsrfToken extends Middleware
         
         // Test endpoints - exclude dari CSRF protection
         'test/*',
+        'debug-api',
     ];
 }

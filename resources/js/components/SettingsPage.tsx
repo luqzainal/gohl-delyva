@@ -88,12 +88,12 @@ const SettingsPage: React.FC = () => {
         })
       });
 
-      const data: ApiResponse = await response.json();
-      
-      if (response.ok && data.status === 'success') {
+      const data: any = await response.json();
+
+      if (response.ok && data.valid === true) {
         showMessage('✅ Delyva credentials are valid!', 'success');
       } else {
-        showMessage(`❌ ${data.error || 'Invalid credentials'}`, 'error');
+        showMessage(`❌ ${data.message || data.error_details || 'Invalid credentials'}`, 'error');
       }
     } catch (err) {
       showMessage('❌ Error testing credentials', 'error');

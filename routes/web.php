@@ -34,7 +34,7 @@ Route::get('/debug-paths', function () {
     ]);
 });
 
-// Debug route untuk test API validation
+// Debug route untuk test API validation (without CSRF)
 Route::post('/debug-api', function () {
     $apiKey = request('api_key');
     if (!$apiKey) {
