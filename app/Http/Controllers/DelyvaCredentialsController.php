@@ -183,15 +183,19 @@ class DelyvaCredentialsController extends Controller
             'response_headers' => $response->headers()
         ]);
 
-        if ($response->successful()) {
-            $userData = $response->json();
+        // Check if authentication successful (including 400 with "No service available")
+        $responseData = $response->json();
+
+        if ($response->successful() ||
+            ($response->status() == 400 && isset($responseData['error']['message']) && $responseData['error']['message'] == 'No service available')) {
+
             Log::info('Delyva credentials validation successful', [
                 'status' => $response->status(),
-                'user_data' => $userData
+                'response_data' => $responseData
             ]);
             return [
                 'valid' => true,
-                'user_data' => $userData,
+                'user_data' => $responseData,
                 'error' => null
             ];
         }
