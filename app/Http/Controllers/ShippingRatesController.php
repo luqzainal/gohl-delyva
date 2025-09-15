@@ -62,6 +62,17 @@ class ShippingRatesController extends Controller
             ], 404);
         }
 
+        // Semak jika shipping diaktifkan
+        if (!$integration->shipping_enabled) {
+            Log::info('Shipping disabled for location', [
+                'location_id' => $locationId
+            ]);
+
+            return response()->json([
+                'rates' => []  // Return empty rates jika disabled
+            ]);
+        }
+
         // Dapatkan kadar dari Delyva
         $rates = $this->fetchRatesFromDelyva($integration, $origin, $destination, $items);
 
@@ -104,8 +115,11 @@ class ShippingRatesController extends Controller
         }
 
         // Format data untuk Delyva API mengikut spesifikasi
+        // Jika customer ID tidak valid, cuba tanpa customer ID atau guna default
+        $customerId = $integration->delyva_customer_id ? (int)$integration->delyva_customer_id : null;
+
         $quotePayload = [
-            'customerId' => (int)($integration->delyva_customer_id ?? 1), // default ke 1 jika tiada
+            'customerId' => $customerId ?? 1, // default ke 1 jika tiada
             'origin' => [
                 'address1' => $origin['address1'] ?? $origin['address'] ?? '',
                 'city' => $origin['city'] ?? '',
@@ -264,6 +278,59 @@ class ShippingRatesController extends Controller
         return response()->json([
             'sample_rates' => $this->formatRatesForHighLevel($rates),
             'note' => 'These are sample rates from KL to PJ with 1kg package'
+        ]);
+    }
+
+    /**
+     * Debug endpoint untuk test Delyva API secara langsung
+     */
+    public function debugDelyvaApi($locationId)
+    {
+        $integration = ShippingIntegration::where('location_id', $locationId)->first();
+
+        if (!$integration || !$integration->delyva_api_key) {
+            return response()->json([
+                'error' => 'Integration or API key not found'
+            ], 404);
+        }
+
+        $quotePayload = [
+            'customerId' => (int)($integration->delyva_customer_id ?? 1),
+            'origin' => [
+                'address1' => 'Kuala Lumpur',
+                'city' => 'Kuala Lumpur',
+                'state' => 'Kuala Lumpur',
+                'postcode' => '50000',
+                'country' => 'MY',
+            ],
+            'destination' => [
+                'address1' => 'Petaling Jaya',
+                'city' => 'Petaling Jaya',
+                'state' => 'Selangor',
+                'postcode' => '47400',
+                'country' => 'MY',
+            ],
+            'weight' => [
+                'unit' => 'kg',
+                'value' => 1.0
+            ],
+            'itemType' => 'PARCEL'
+        ];
+
+        $headers = [
+            'X-Delyvax-Access-Token' => $integration->delyva_api_key,
+            'Content-Type' => 'application/json',
+        ];
+
+        $response = Http::withHeaders($headers)
+            ->post('https://api.delyva.app/v1.0/service/instantQuote', $quotePayload);
+
+        return response()->json([
+            'request' => $quotePayload,
+            'headers' => $headers,
+            'response_status' => $response->status(),
+            'response_body' => $response->json(),
+            'successful' => $response->successful()
         ]);
     }
 }

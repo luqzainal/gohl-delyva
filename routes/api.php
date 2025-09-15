@@ -15,6 +15,15 @@ Route::get('/user', function (Request $request) {
 // API untuk simpan kredential Delyva - dipanggil dari frontend
 Route::post('/credentials', [DelyvaCredentialsController::class, 'saveCredentials']);
 Route::post('/credentials/test', [DelyvaCredentialsController::class, 'testCredentials']);
+Route::post('/shipping/toggle', [DelyvaCredentialsController::class, 'toggleShipping']);
+
+// Carrier registration endpoints - dipanggil dari frontend
+Route::post('/carrier/register/{locationId}', [\App\Http\Controllers\CarrierRegistrationController::class, 'registerCarrier']);
+Route::get('/carrier/info/{locationId}', [\App\Http\Controllers\CarrierRegistrationController::class, 'getCarrierInfo']);
+Route::get('/carrier/status/{locationId}', [\App\Http\Controllers\CarrierRegistrationController::class, 'getIntegrationStatus']);
+Route::put('/carrier/update/{locationId}', [\App\Http\Controllers\CarrierRegistrationController::class, 'updateCarrier']);
+Route::put('/carrier/deactivate/{locationId}', [\App\Http\Controllers\CarrierRegistrationController::class, 'deactivateCarrier']);
+Route::delete('/carrier/unregister/{locationId}', [\App\Http\Controllers\CarrierRegistrationController::class, 'unregisterCarrier']);
 
 // HighLevel Context endpoints
 Route::post('/decrypt-context', [HighLevelContextController::class, 'decryptContext']);
@@ -24,3 +33,6 @@ Route::post('/test-context', [HighLevelContextController::class, 'testContext'])
 Route::post('/webhooks/highlevel', [OrderWebhookController::class, 'handleOrderWebhook']);
 Route::post('/webhooks/delyva/status', [DelyvaWebhookController::class, 'handleStatusWebhook']);
 Route::post('/shipping/rates/callback', [ShippingRatesController::class, 'getRatesCallback']);
+
+// Debug endpoints
+Route::get('/debug/delyva/{locationId}', [ShippingRatesController::class, 'debugDelyvaApi']);

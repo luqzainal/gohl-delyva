@@ -52,6 +52,7 @@ class CarrierRegistrationController extends Controller
         $headers = [
             'Authorization' => 'Bearer ' . $integration->hl_access_token,
             'Content-Type' => 'application/json',
+            'Version' => '2021-07-28',
         ];
 
         $response = Http::withHeaders($headers)
@@ -106,6 +107,91 @@ class CarrierRegistrationController extends Controller
     }
 
     /**
+     * Dapatkan status lengkap integration untuk location
+     */
+    public function getIntegrationStatus($locationId)
+    {
+        $integration = ShippingIntegration::where('location_id', $locationId)->first();
+
+        $status = [
+            'location_id' => $locationId,
+            'integration_exists' => false,
+            'has_delyva_credentials' => false,
+            'has_highlevel_token' => false,
+            'carrier_registered' => false,
+            'carrier_id' => null,
+            'shipping_enabled' => true,
+            'delyva_api_test' => null,
+            'created_at' => null,
+            'updated_at' => null,
+        ];
+
+        if (!$integration) {
+            return response()->json([
+                'status' => $status,
+                'message' => 'No integration found for this location'
+            ]);
+        }
+
+        $status['integration_exists'] = true;
+        $status['has_delyva_credentials'] = !empty($integration->delyva_api_key);
+        $status['has_highlevel_token'] = !empty($integration->hl_access_token);
+        $status['carrier_registered'] = !empty($integration->shipping_carrier_id);
+        $status['carrier_id'] = $integration->shipping_carrier_id;
+        $status['shipping_enabled'] = $integration->shipping_enabled ?? true;
+        $status['created_at'] = $integration->created_at;
+        $status['updated_at'] = $integration->updated_at;
+
+        // Test Delyva API jika ada credentials
+        if ($status['has_delyva_credentials']) {
+            $testPayload = [
+                'customerId' => (int)($integration->delyva_customer_id ?? 1),
+                'origin' => [
+                    'address1' => 'Kuala Lumpur',
+                    'city' => 'Kuala Lumpur',
+                    'state' => 'Kuala Lumpur',
+                    'postcode' => '50000',
+                    'country' => 'MY',
+                ],
+                'destination' => [
+                    'address1' => 'Petaling Jaya',
+                    'city' => 'Petaling Jaya',
+                    'state' => 'Selangor',
+                    'postcode' => '47400',
+                    'country' => 'MY',
+                ],
+                'weight' => [
+                    'unit' => 'kg',
+                    'value' => 1.0
+                ],
+                'itemType' => 'PARCEL'
+            ];
+
+            $headers = [
+                'X-Delyvax-Access-Token' => $integration->delyva_api_key,
+                'Content-Type' => 'application/json',
+            ];
+
+            $response = Http::withHeaders($headers)
+                ->post('https://api.delyva.app/v1.0/service/instantQuote', $testPayload);
+
+            $status['delyva_api_test'] = [
+                'success' => $response->successful() ||
+                           ($response->status() == 400 &&
+                            isset($response->json()['error']['message']) &&
+                            $response->json()['error']['message'] == 'No service available'),
+                'status_code' => $response->status(),
+                'message' => $response->json()['error']['message'] ?? 'API call successful'
+            ];
+        }
+
+        return response()->json([
+            'status' => $status,
+            'message' => 'Integration status retrieved successfully'
+        ]);
+    }
+
+    /**
      * Dapatkan maklumat carrier yang didaftarkan
      */
     public function getCarrierInfo($locationId)
@@ -121,6 +207,7 @@ class CarrierRegistrationController extends Controller
         $headers = [
             'Authorization' => 'Bearer ' . $integration->hl_access_token,
             'Content-Type' => 'application/json',
+            'Version' => '2021-07-28',
         ];
 
         $response = Http::withHeaders($headers)
@@ -164,6 +251,7 @@ class CarrierRegistrationController extends Controller
         $headers = [
             'Authorization' => 'Bearer ' . $integration->hl_access_token,
             'Content-Type' => 'application/json',
+            'Version' => '2021-07-28',
         ];
 
         $response = Http::withHeaders($headers)
@@ -204,6 +292,7 @@ class CarrierRegistrationController extends Controller
         $headers = [
             'Authorization' => 'Bearer ' . $integration->hl_access_token,
             'Content-Type' => 'application/json',
+            'Version' => '2021-07-28',
         ];
 
         $response = Http::withHeaders($headers)
@@ -249,6 +338,7 @@ class CarrierRegistrationController extends Controller
         $headers = [
             'Authorization' => 'Bearer ' . $integration->hl_access_token,
             'Content-Type' => 'application/json',
+            'Version' => '2021-07-28',
         ];
 
         $response = Http::withHeaders($headers)
@@ -312,6 +402,7 @@ class CarrierRegistrationController extends Controller
         $headers = [
             'Authorization' => 'Bearer ' . $tokenData['access_token'],
             'Content-Type' => 'application/json',
+            'Version' => '2021-07-28',
         ];
 
         $response = Http::withHeaders($headers)

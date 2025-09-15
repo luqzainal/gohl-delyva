@@ -20,6 +20,7 @@ const SettingsPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const [messageType, setMessageType] = useState<'success' | 'error' | ''>('');
+  const [shippingEnabled, setShippingEnabled] = useState<boolean>(true);
   const [isTestingCredentials, setIsTestingCredentials] = useState<boolean>(false);
 
   useEffect(() => {
@@ -58,6 +59,27 @@ const SettingsPage: React.FC = () => {
 
     return () => window.removeEventListener('message', handler);
   }, []);
+
+  useEffect(() => {
+    // Load shipping status when locationId is available
+    if (locationId) {
+      loadShippingStatus();
+    }
+  }, [locationId]);
+
+  const loadShippingStatus = async () => {
+    if (!locationId) return;
+
+    try {
+      const response = await fetch(`/api/carrier/status/${locationId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setShippingEnabled(data.status?.shipping_enabled ?? true);
+      }
+    } catch (err) {
+      console.error('Error loading shipping status:', err);
+    }
+  };
 
   const showMessage = (text: string, type: 'success' | 'error') => {
     setMessage(text);
@@ -103,6 +125,41 @@ const SettingsPage: React.FC = () => {
     }
   };
 
+  const toggleShipping = async (enabled: boolean) => {
+    if (!locationId) {
+      showMessage('Location ID not found. Please refresh the page.', 'error');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/shipping/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          locationId,
+          enabled
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.status === 'success') {
+        setShippingEnabled(enabled);
+        showMessage(
+          enabled
+            ? '✅ Shipping rates enabled!'
+            : '⏸️ Shipping rates disabled!',
+          'success'
+        );
+      } else {
+        showMessage(`❌ ${data.error || 'Failed to update shipping status'}`, 'error');
+      }
+    } catch (err) {
+      showMessage('❌ Error updating shipping status. Please try again.', 'error');
+      console.error('Toggle shipping error:', err);
+    }
+  };
+
   const registerAsCarrier = async () => {
     if (!locationId) {
       console.log('Cannot register carrier - no location ID');
@@ -110,7 +167,7 @@ const SettingsPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`/carrier/register/${locationId}`, {
+      const response = await fetch(`/api/carrier/register/${locationId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -262,6 +319,39 @@ const SettingsPage: React.FC = () => {
             </button>
           </div>
         </form>
+
+        {/* Shipping Toggle Section */}
+        {locationId && (
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg border">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-gray-900">
+                  Live Shipping Rates
+                </h3>
+                <p className="text-xs text-gray-600 mt-1">
+                  {shippingEnabled
+                    ? 'Customers will see live shipping rates at checkout'
+                    : 'Shipping rates are disabled - no rates will be shown'
+                  }
+                </p>
+              </div>
+              <button
+                onClick={() => toggleShipping(!shippingEnabled)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  shippingEnabled ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
+                role="switch"
+                aria-checked={shippingEnabled}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
+                    shippingEnabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="mt-6 text-xs text-gray-500 text-center">
           <p>

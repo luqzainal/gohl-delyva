@@ -71,6 +71,51 @@ class DelyvaCredentialsController extends Controller
     }
 
     /**
+     * Toggle shipping enabled/disabled
+     */
+    public function toggleShipping(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'locationId' => 'required|string',
+            'enabled' => 'required|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => 'Validation failed',
+                'messages' => $validator->errors()
+            ], 422);
+        }
+
+        $locationId = $request->input('locationId');
+        $enabled = $request->input('enabled');
+
+        $integration = ShippingIntegration::where('location_id', $locationId)->first();
+
+        if (!$integration) {
+            return response()->json([
+                'error' => 'Integration not found'
+            ], 404);
+        }
+
+        $integration->update([
+            'shipping_enabled' => $enabled
+        ]);
+
+        Log::info('Shipping status toggled', [
+            'location_id' => $locationId,
+            'enabled' => $enabled,
+            'integration_id' => $integration->id
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Shipping status updated successfully',
+            'enabled' => $enabled
+        ]);
+    }
+
+    /**
      * Dapatkan kredential Delyva untuk location
      */
     public function getCredentials($locationId)
