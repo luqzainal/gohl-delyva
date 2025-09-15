@@ -5,6 +5,10 @@
 
     RewriteEngine On
 
+    # Handle static assets - serve directly if they exist
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^build/assets/.*\.(js|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot)$ - [L]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
@@ -18,4 +22,18 @@
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
+</IfModule>
+
+# Security and performance headers
+<IfModule mod_headers.c>
+    # Cache static assets
+    <FilesMatch "\.(js|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot)$">
+        Header set Cache-Control "public, max-age=31536000"
+    </FilesMatch>
+</IfModule>
+
+# Ensure JS files are served with correct MIME type
+<IfModule mod_mime.c>
+    AddType application/javascript .js
+    AddType text/css .css
 </IfModule>
