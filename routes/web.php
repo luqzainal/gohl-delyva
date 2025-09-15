@@ -227,4 +227,60 @@ Route::prefix('test')->group(function () {
             ]
         ]);
     })->name('test.oauth-config');
+
+    // Test OAuth token exchange with HighLevel
+    Route::get('oauth-simulate', function() {
+        $testCode = request('code', 'test_auth_code_123456789');
+        $locationId = request('location_id', 'test_location_456');
+
+        try {
+            $clientId = config('services.highlevel.client_id');
+            $clientSecret = config('services.highlevel.client_secret');
+            $redirectUri = config('services.highlevel.redirect_uri');
+
+            if (!$clientId || !$clientSecret) {
+                return response()->json([
+                    'error' => 'Missing OAuth credentials',
+                    'config' => [
+                        'client_id' => $clientId ? 'SET' : 'MISSING',
+                        'client_secret' => $clientSecret ? 'SET' : 'MISSING',
+                        'redirect_uri' => $redirectUri
+                    ]
+                ], 400);
+            }
+
+            // Test the exact same request our callback makes
+            $response = Http::asForm()->post('https://services.leadconnectorhq.com/oauth/token', [
+                'client_id' => $clientId,
+                'client_secret' => $clientSecret,
+                'grant_type' => 'authorization_code',
+                'code' => $testCode,
+                'redirect_uri' => $redirectUri,
+            ]);
+
+            return response()->json([
+                'request' => [
+                    'url' => 'https://services.leadconnectorhq.com/oauth/token',
+                    'client_id' => substr($clientId, 0, 10) . '...',
+                    'grant_type' => 'authorization_code',
+                    'code' => $testCode,
+                    'redirect_uri' => $redirectUri,
+                ],
+                'response' => [
+                    'status' => $response->status(),
+                    'success' => $response->successful(),
+                    'body' => $response->body(),
+                    'json' => $response->json(),
+                    'headers' => $response->headers()
+                ],
+                'note' => 'This tests the OAuth token exchange with a test code. Use ?code=your_real_code&location_id=your_location to test with real values.'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Exception occurred',
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ], 500);
+        }
+    })->name('test.oauth-simulate');
 });
