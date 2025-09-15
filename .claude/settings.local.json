@@ -4,7 +4,12 @@
       "Read(c:\\Users\\luqma\\Pictures\\Screenshots/**)",
       "Bash(php artisan migrate:*)",
       "Read(c:\\Users\\luqma\\Pictures\\Screenshots/**)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Read(//c/Users/luqma/Pictures/Screenshots/**)",
+      "Bash(php artisan config:clear:*)",
+      "Bash(php artisan view:clear:*)",
+      "Bash(php artisan:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

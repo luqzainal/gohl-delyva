@@ -4,7 +4,7 @@
     "name": "client"
   },
   "resources/css/app.css": {
-    "file": "assets/app-BsoIS1ZO.css",
+    "file": "assets/app-Cv-mFGQE.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "names": [
@@ -12,7 +12,7 @@
     ]
   },
   "resources/js/app.tsx": {
-    "file": "assets/app-CIMEqkPZ.js",
+    "file": "assets/app-BW8WA_mf.js",
     "name": "app",
     "src": "resources/js/app.tsx",
     "isEntry": true,
@@ -23,11 +23,11 @@
       "resources/js/pages/welcome.tsx"
     ],
     "css": [
-      "assets/app-BsoIS1ZO.css"
+      "assets/app-Cv-mFGQE.css"
     ]
   },
   "resources/js/pages/welcome.tsx": {
-    "file": "assets/welcome-huoeKB0e.js",
+    "file": "assets/welcome-B0DLvD5E.js",
     "name": "welcome",
     "src": "resources/js/pages/welcome.tsx",
     "isDynamicEntry": true,
@@ -36,7 +36,7 @@
       "resources/js/app.tsx"
     ],
     "css": [
-      "assets/app-BsoIS1ZO.css"
+      "assets/app-Cv-mFGQE.css"
     ]
   },
   "resources/js/plugin.tsx": {
