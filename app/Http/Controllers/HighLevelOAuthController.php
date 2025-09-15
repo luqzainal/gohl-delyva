@@ -86,7 +86,14 @@ class HighLevelOAuthController extends Controller
             ];
         } else {
             // Production mode: Actual HighLevel API call
-            $tokenResponse = Http::post('https://services.leadconnectorhq.com/oauth/token', [
+            Log::info('Attempting HighLevel OAuth token exchange', [
+                'client_id' => substr($clientId, 0, 10) . '...',
+                'redirect_uri' => config('services.highlevel.redirect_uri'),
+                'code_length' => strlen($code),
+                'code_preview' => substr($code, 0, 15) . '...'
+            ]);
+
+            $tokenResponse = Http::asForm()->post('https://services.leadconnectorhq.com/oauth/token', [
                 'client_id' => $clientId,
                 'client_secret' => $clientSecret,
                 'grant_type' => 'authorization_code',
@@ -95,13 +102,45 @@ class HighLevelOAuthController extends Controller
             ]);
 
             if (!$tokenResponse->successful()) {
+                $responseBody = $tokenResponse->body();
+                $responseJson = $tokenResponse->json();
+
                 Log::error('HighLevel OAuth token exchange failed', [
-                    'response' => $tokenResponse->body(),
-                    'status' => $tokenResponse->status()
+                    'request_url' => 'https://services.leadconnectorhq.com/oauth/token',
+                    'request_data' => [
+                        'client_id' => $clientId,
+                        'client_secret' => substr($clientSecret, 0, 8) . '...',
+                        'grant_type' => 'authorization_code',
+                        'code' => substr($code, 0, 10) . '...',
+                        'redirect_uri' => config('services.highlevel.redirect_uri'),
+                    ],
+                    'response_status' => $tokenResponse->status(),
+                    'response_body' => $responseBody,
+                    'response_json' => $responseJson,
+                    'response_headers' => $tokenResponse->headers(),
+                    'request_headers' => [
+                        'Content-Type' => 'application/x-www-form-urlencoded',
+                        'Accept' => 'application/json'
+                    ]
                 ]);
+
+                // Check for specific error messages
+                $errorMessage = 'Failed to exchange authorization code with HighLevel';
+                if ($responseJson && isset($responseJson['error'])) {
+                    $errorMessage .= ': ' . $responseJson['error'];
+                    if (isset($responseJson['error_description'])) {
+                        $errorMessage .= ' - ' . $responseJson['error_description'];
+                    }
+                }
+
                 return redirect()->route('install.error')->with([
-                    'error' => 'Failed to exchange authorization code with HighLevel',
-                    'errorId' => 'TOKEN_EXCHANGE_FAILED_' . time()
+                    'error' => $errorMessage,
+                    'errorId' => 'TOKEN_EXCHANGE_FAILED_' . time(),
+                    'debug_info' => [
+                        'status' => $tokenResponse->status(),
+                        'response' => $responseJson,
+                        'body' => $responseBody
+                    ]
                 ]);
             }
 
