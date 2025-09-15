@@ -290,13 +290,18 @@ Route::prefix('test')->group(function () {
             }
 
             // Test the exact same request our callback makes
-            $response = Http::asForm()->post('https://api.msgsndr.com/oauth/token', [
-                'client_id' => $clientId,
-                'client_secret' => $clientSecret,
-                'grant_type' => 'authorization_code',
-                'code' => $testCode,
-                'redirect_uri' => $redirectUri,
-            ]);
+            $response = Http::asForm()
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/x-www-form-urlencoded'
+                ])
+                ->post('https://api.msgsndr.com/oauth/token', [
+                    'client_id' => $clientId,
+                    'client_secret' => $clientSecret,
+                    'grant_type' => 'authorization_code',
+                    'code' => $testCode,
+                    'redirect_uri' => $redirectUri,
+                ]);
 
             return response()->json([
                 'request' => [

@@ -104,13 +104,18 @@ class HighLevelOAuthController extends Controller
                 'code_preview' => substr($code, 0, 15) . '...'
             ]);
 
-            $tokenResponse = Http::asForm()->post('https://api.msgsndr.com/oauth/token', [
-                'client_id' => $clientId,
-                'client_secret' => $clientSecret,
-                'grant_type' => 'authorization_code',
-                'code' => $code,
-                'redirect_uri' => config('services.highlevel.redirect_uri'),
-            ]);
+            $tokenResponse = Http::asForm()
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/x-www-form-urlencoded'
+                ])
+                ->post('https://api.msgsndr.com/oauth/token', [
+                    'client_id' => $clientId,
+                    'client_secret' => $clientSecret,
+                    'grant_type' => 'authorization_code',
+                    'code' => $code,
+                    'redirect_uri' => config('services.highlevel.redirect_uri'),
+                ]);
 
             if (!$tokenResponse->successful()) {
                 $responseBody = $tokenResponse->body();
@@ -210,12 +215,17 @@ class HighLevelOAuthController extends Controller
             return response()->json(['error' => 'Integration not found or no refresh token'], 404);
         }
 
-        $tokenResponse = Http::asForm()->post('https://api.msgsndr.com/oauth/token', [
-            'client_id' => config('services.highlevel.client_id'),
-            'client_secret' => config('services.highlevel.client_secret'),
-            'grant_type' => 'refresh_token',
-            'refresh_token' => $integration->hl_refresh_token,
-        ]);
+        $tokenResponse = Http::asForm()
+            ->withHeaders([
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/x-www-form-urlencoded'
+            ])
+            ->post('https://api.msgsndr.com/oauth/token', [
+                'client_id' => config('services.highlevel.client_id'),
+                'client_secret' => config('services.highlevel.client_secret'),
+                'grant_type' => 'refresh_token',
+                'refresh_token' => $integration->hl_refresh_token,
+            ]);
 
         if (!$tokenResponse->successful()) {
             Log::error('HighLevel token refresh failed', [
