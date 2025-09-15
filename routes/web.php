@@ -212,6 +212,34 @@ Route::prefix('test')->group(function () {
         ]);
     })->name('test.oauth-callback');
 
+    // Test OAuth callback with manual parameters
+    Route::get('oauth-test-callback', function() {
+        $code = request('code');
+        $locationId = request('location_id');
+
+        if (!$code) {
+            return response()->json([
+                'error' => 'No code parameter provided',
+                'usage' => 'Add ?code=YOUR_CODE&location_id=YOUR_LOCATION_ID to test',
+                'example' => url('/test/oauth-test-callback?code=665c89bc2131d2a4b4f1315a03aa28c75e04a431&location_id=l1C08ntBrFjLS0elLIYU')
+            ]);
+        }
+
+        // Test the actual OAuth controller method
+        $request = request();
+        $controller = new \App\Http\Controllers\HighLevelOAuthController();
+
+        try {
+            return $controller->handleCallback($request);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Controller error',
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ], 500);
+        }
+    })->name('test.oauth-test-callback');
+
     // Debug OAuth configuration
     Route::get('oauth-config', function() {
         return response()->json([
@@ -227,6 +255,18 @@ Route::prefix('test')->group(function () {
             ]
         ]);
     })->name('test.oauth-config');
+
+    // Debug OAuth callback parameters
+    Route::get('oauth-debug', function() {
+        return response()->json([
+            'all_request_params' => request()->all(),
+            'full_url' => request()->fullUrl(),
+            'query_string' => request()->getQueryString(),
+            'path' => request()->path(),
+            'method' => request()->method(),
+            'note' => 'This shows exactly what parameters are received in OAuth callback'
+        ]);
+    })->name('test.oauth-debug');
 
     // Test OAuth token exchange with HighLevel
     Route::get('oauth-simulate', function() {
