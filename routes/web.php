@@ -20,6 +20,20 @@ Route::get('/plugin-page', function () {
     return view('plugin');
 })->name('plugin.page');
 
+// Debug route untuk check server paths
+Route::get('/debug-paths', function () {
+    return response()->json([
+        'public_path' => public_path(),
+        'build_path' => public_path('build'),
+        'manifest_exists' => file_exists(public_path('build/manifest.json')),
+        'manifest_path' => public_path('build/manifest.json'),
+        'build_dir_exists' => is_dir(public_path('build')),
+        'build_files' => is_dir(public_path('build')) ? scandir(public_path('build')) : [],
+        'assets_dir_exists' => is_dir(public_path('build/assets')),
+        'assets_files' => is_dir(public_path('build/assets')) ? scandir(public_path('build/assets')) : [],
+    ]);
+});
+
 // Installation result pages
 Route::get('/install/success', function () {
     $locationId = request()->get('locationId') ?? session('locationId');

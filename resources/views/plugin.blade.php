@@ -51,8 +51,36 @@
     </div>
 
     <!-- Vite JS -->
-    @vite('resources/js/plugin.tsx')
-    
+    @if(file_exists(public_path('build/manifest.json')))
+        @vite('resources/js/plugin.tsx')
+    @else
+        <!-- Fallback: Simple JS untuk development -->
+        <script>
+            console.log('Vite assets not found, using fallback');
+            // Replace loading dengan simple form
+            setTimeout(() => {
+                document.getElementById('plugin-root').innerHTML = `
+                    <div class="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+                        <div class="w-full max-w-md bg-white rounded-lg shadow-md p-6">
+                            <div class="text-center mb-6">
+                                <h2 class="text-2xl font-bold text-gray-900 mb-2">Delyva Integration</h2>
+                                <p class="text-gray-600 text-sm">Enter your Delyva credentials to enable shipping</p>
+                                <p class="text-xs text-red-500 mt-2">Development mode - assets not built</p>
+                            </div>
+                            <form class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Delyva API Key *</label>
+                                    <input type="text" placeholder="Enter your Delyva API Key" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                </div>
+                                <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">Save</button>
+                            </form>
+                        </div>
+                    </div>
+                `;
+            }, 100);
+        </script>
+    @endif
+
     <script>
         // Debug: Log messages dari HighLevel
         window.addEventListener('message', function(event) {
