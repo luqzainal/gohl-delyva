@@ -20,6 +20,27 @@ Route::get('/plugin-page', function () {
     return view('plugin');
 })->name('plugin.page');
 
+// Asset serving fallback untuk production
+Route::get('/build/assets/{file}', function ($file) {
+    $path = public_path("build/assets/{$file}");
+
+    if (!file_exists($path)) {
+        abort(404);
+    }
+
+    $mimeType = 'text/plain';
+    if (str_ends_with($file, '.js')) {
+        $mimeType = 'application/javascript';
+    } elseif (str_ends_with($file, '.css')) {
+        $mimeType = 'text/css';
+    }
+
+    return response()->file($path, [
+        'Content-Type' => $mimeType,
+        'Cache-Control' => 'public, max-age=31536000',
+    ]);
+})->where('file', '.*');
+
 // Debug route untuk check server paths
 Route::get('/debug-paths', function () {
     return response()->json([
