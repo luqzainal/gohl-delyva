@@ -20,6 +20,9 @@ class DelyvaCredentialsController extends Controller
             'apiKey' => 'required|string',
             'customerId' => 'nullable|string',
             'apiSecret' => 'nullable|string',
+            'companyCode' => 'nullable|string',
+            'companyId' => 'nullable|string',
+            'userId' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -33,9 +36,12 @@ class DelyvaCredentialsController extends Controller
         $apiKey = $request->apiKey;
         $customerId = $request->customerId;
         $apiSecret = $request->apiSecret;
+        $companyCode = $request->companyCode;
+        $companyId = $request->companyId;
+        $userId = $request->userId;
 
         // Validasi kredential dengan Delyva API
-        $validationResult = $this->validateDelyvaCredentials($apiKey, $customerId, $apiSecret);
+        $validationResult = $this->validateDelyvaCredentials($apiKey, $customerId, $apiSecret, $companyCode, $companyId, $userId);
 
         if (!$validationResult['valid']) {
             return response()->json([
@@ -55,6 +61,9 @@ class DelyvaCredentialsController extends Controller
                 'delyva_api_key' => $apiKey,
                 'delyva_customer_id' => $customerId,
                 'delyva_api_secret' => $apiSecret,
+                'delyva_company_code' => $companyCode,
+                'delyva_company_id' => $companyId,
+                'delyva_user_id' => $userId,
             ]
         );
 
@@ -144,6 +153,9 @@ class DelyvaCredentialsController extends Controller
             'apiKey' => 'required|string',
             'customerId' => 'nullable|string',
             'apiSecret' => 'nullable|string',
+            'companyCode' => 'nullable|string',
+            'companyId' => 'nullable|string',
+            'userId' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -156,7 +168,10 @@ class DelyvaCredentialsController extends Controller
         $validationResult = $this->validateDelyvaCredentials(
             $request->apiKey,
             $request->customerId,
-            $request->apiSecret
+            $request->apiSecret,
+            $request->companyCode,
+            $request->companyId,
+            $request->userId
         );
 
         return response()->json([
@@ -199,7 +214,7 @@ class DelyvaCredentialsController extends Controller
     /**
      * Validasi kredential Delyva dengan API mereka
      */
-    private function validateDelyvaCredentials($apiKey, $customerId = null, $apiSecret = null)
+    private function validateDelyvaCredentials($apiKey, $customerId = null, $apiSecret = null, $companyCode = null, $companyId = null, $userId = null)
     {
         $headers = [
             'X-Delyvax-Access-Token' => $apiKey,
@@ -207,14 +222,40 @@ class DelyvaCredentialsController extends Controller
         ];
 
         // Test dengan endpoint service/instantQuote untuk validation
-        // Gunakan payload minimum untuk test API key sahaja
+        // Gunakan payload lengkap dengan semua parameters yang ada
         $testPayload = [
-            'data' => [
-                'pickupAddress' => 'Kuala Lumpur',
-                'deliveryAddress' => 'Selangor',
-                'totalWeight' => 1
-            ]
+            'customerId' => $customerId ? (int)$customerId : 1,
+            'origin' => [
+                'address1' => 'Kuala Lumpur',
+                'city' => 'Kuala Lumpur',
+                'state' => 'Kuala Lumpur',
+                'postcode' => '50000',
+                'country' => 'MY',
+            ],
+            'destination' => [
+                'address1' => 'Petaling Jaya',
+                'city' => 'Petaling Jaya',
+                'state' => 'Selangor',
+                'postcode' => '47400',
+                'country' => 'MY',
+            ],
+            'weight' => [
+                'unit' => 'kg',
+                'value' => 1.0
+            ],
+            'itemType' => 'PARCEL'
         ];
+
+        // Add additional fields if provided
+        if ($companyCode) {
+            $testPayload['companyCode'] = $companyCode;
+        }
+        if ($companyId) {
+            $testPayload['companyId'] = $companyId;
+        }
+        if ($userId) {
+            $testPayload['userId'] = $userId;
+        }
 
         $response = Http::withHeaders($headers)
             ->timeout(30)

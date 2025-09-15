@@ -206,6 +206,18 @@
                                     <label class="block text-sm font-medium text-gray-700 mb-1">API Secret (Optional)</label>
                                     <input type="password" id="api-secret" placeholder="API Secret (if available)" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                 </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Company Code</label>
+                                    <input type="text" id="company-code" placeholder="e.g., demo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Company ID</label>
+                                    <input type="text" id="company-id" placeholder="e.g., 9e0aed8a-5c67-42a4-82b6-e01bf7687f31" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+                                    <input type="text" id="user-id" placeholder="e.g., 3e21a1c0-912e-11f0-b030-1bfc12908131" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                </div>
                                 <div class="flex space-x-3">
                                     <button type="button" onclick="testCredentials()" class="flex-1 bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 text-sm">
                                         Test Credentials
@@ -266,7 +278,10 @@
                             locationId,
                             apiKey,
                             customerId: document.getElementById('customer-id').value,
-                            apiSecret: document.getElementById('api-secret').value
+                            apiSecret: document.getElementById('api-secret').value,
+                            companyCode: document.getElementById('company-code').value,
+                            companyId: document.getElementById('company-id').value,
+                            userId: document.getElementById('user-id').value
                         })
                     });
 
@@ -303,7 +318,10 @@
                             locationId,
                             apiKey,
                             customerId: document.getElementById('customer-id').value,
-                            apiSecret: document.getElementById('api-secret').value
+                            apiSecret: document.getElementById('api-secret').value,
+                            companyCode: document.getElementById('company-code').value,
+                            companyId: document.getElementById('company-id').value,
+                            userId: document.getElementById('user-id').value
                         })
                     });
 

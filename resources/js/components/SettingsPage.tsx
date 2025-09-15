@@ -16,6 +16,9 @@ const SettingsPage: React.FC = () => {
   const [apiKey, setApiKey] = useState<string>('');
   const [customerId, setCustomerId] = useState<string>('');
   const [apiSecret, setApiSecret] = useState<string>('');
+  const [companyCode, setCompanyCode] = useState<string>('');
+  const [companyId, setCompanyId] = useState<string>('');
+  const [userId, setUserId] = useState<string>('');
   const [locationId, setLocationId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
@@ -106,7 +109,10 @@ const SettingsPage: React.FC = () => {
           locationId,
           apiKey,
           customerId,
-          apiSecret
+          apiSecret,
+          companyCode,
+          companyId,
+          userId
         })
       });
 
@@ -210,7 +216,10 @@ const SettingsPage: React.FC = () => {
           locationId,
           apiKey,
           customerId,
-          apiSecret
+          apiSecret,
+          companyCode,
+          companyId,
+          userId
         })
       });
 
@@ -296,6 +305,45 @@ const SettingsPage: React.FC = () => {
               value={apiSecret}
               onChange={(e) => setApiSecret(e.target.value)}
               placeholder="API Secret (if available)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Company Code
+            </label>
+            <input
+              type="text"
+              value={companyCode}
+              onChange={(e) => setCompanyCode(e.target.value)}
+              placeholder="e.g., demo"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Company ID
+            </label>
+            <input
+              type="text"
+              value={companyId}
+              onChange={(e) => setCompanyId(e.target.value)}
+              placeholder="e.g., 9e0aed8a-5c67-42a4-82b6-e01bf7687f31"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              User ID
+            </label>
+            <input
+              type="text"
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+              placeholder="e.g., 3e21a1c0-912e-11f0-b030-1bfc12908131"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>

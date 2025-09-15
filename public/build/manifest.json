@@ -4,7 +4,7 @@
     "name": "client"
   },
   "resources/css/app.css": {
-    "file": "assets/app-y61ZBr1I.css",
+    "file": "assets/app-DgLgiTEM.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "names": [
@@ -12,7 +12,7 @@
     ]
   },
   "resources/js/app.tsx": {
-    "file": "assets/app-CLWPIljt.js",
+    "file": "assets/app-CXMWb5DT.js",
     "name": "app",
     "src": "resources/js/app.tsx",
     "isEntry": true,
@@ -23,11 +23,11 @@
       "resources/js/pages/welcome.tsx"
     ],
     "css": [
-      "assets/app-y61ZBr1I.css"
+      "assets/app-DgLgiTEM.css"
     ]
   },
   "resources/js/pages/welcome.tsx": {
-    "file": "assets/welcome-VFX8o-l1.js",
+    "file": "assets/welcome-Cr1CWE0k.js",
     "name": "welcome",
     "src": "resources/js/pages/welcome.tsx",
     "isDynamicEntry": true,
@@ -36,11 +36,11 @@
       "resources/js/app.tsx"
     ],
     "css": [
-      "assets/app-y61ZBr1I.css"
+      "assets/app-DgLgiTEM.css"
     ]
   },
   "resources/js/plugin.tsx": {
-    "file": "assets/plugin-C8sZfekD.js",
+    "file": "assets/plugin-BOBT8VXG.js",
     "name": "plugin",
     "src": "resources/js/plugin.tsx",
     "isEntry": true,
