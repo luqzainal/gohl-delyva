@@ -103,6 +103,33 @@ const SettingsPage: React.FC = () => {
     }
   };
 
+  const registerAsCarrier = async () => {
+    if (!locationId) {
+      console.log('Cannot register carrier - no location ID');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/carrier/register/${locationId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showMessage('✅ Registered as shipping carrier in HighLevel!', 'success');
+        console.log('Carrier registration successful:', data);
+      } else {
+        console.error('Carrier registration failed:', data);
+        // Don't show error to user - credential save was successful
+      }
+    } catch (err) {
+      console.error('Carrier registration error:', err);
+      // Don't show error to user - credential save was successful
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -135,8 +162,8 @@ const SettingsPage: React.FC = () => {
       if (response.ok && data.status === 'success') {
         showMessage('🎉 API Key saved successfully!', 'success');
         
-        // Optional: Auto-register sebagai shipping carrier
-        // registerAsCarrier();
+        // Auto-register sebagai shipping carrier
+        registerAsCarrier();
       } else {
         showMessage(`❌ ${data.error || 'Failed to save credentials'}`, 'error');
       }
