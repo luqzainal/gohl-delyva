@@ -36,11 +36,22 @@ class HighLevelOAuthController extends Controller
         $code = $request->get('code');
         $locationId = $request->get('location_id') ?? $request->get('locationId');
         $state = $request->get('state');
-        
+
+        // Extract location_id from URL if not in direct parameters
+        if (!$locationId && $request->fullUrl()) {
+            $url = $request->fullUrl();
+            if (preg_match('/[?&]location_id=([^&]+)/', $url, $matches)) {
+                $locationId = $matches[1];
+            } elseif (preg_match('/[?&]locationId=([^&]+)/', $url, $matches)) {
+                $locationId = $matches[1];
+            }
+        }
+
         Log::info('OAuth callback received', [
-            'code' => $code ? substr($code, 0, 10) . '...' : null,
+            'code' => $code ? substr($code, 0, 15) . '...' : null,
             'location_id' => $locationId,
             'state' => $state,
+            'full_url' => $request->fullUrl(),
             'all_params' => $request->all()
         ]);
 
@@ -145,6 +156,15 @@ class HighLevelOAuthController extends Controller
             }
 
             $tokenData = $tokenResponse->json();
+
+            Log::info('HighLevel OAuth token exchange successful', [
+                'location_id' => $locationId,
+                'token_type' => $tokenData['token_type'] ?? 'unknown',
+                'access_token_preview' => isset($tokenData['access_token']) ? substr($tokenData['access_token'], 0, 50) . '...' : null,
+                'has_refresh_token' => isset($tokenData['refresh_token']),
+                'expires_in' => $tokenData['expires_in'] ?? null,
+                'full_response_keys' => array_keys($tokenData)
+            ]);
         }
 
         try {
