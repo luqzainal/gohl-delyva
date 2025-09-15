@@ -161,10 +161,19 @@ class DelyvaCredentialsController extends Controller
             'Content-Type' => 'application/json',
         ];
 
-        // Test dengan endpoint user mengikut dokumentasi
+        // Test dengan endpoint service/instantQuote untuk validation
+        // Gunakan payload minimum untuk test API key sahaja
+        $testPayload = [
+            'data' => [
+                'pickupAddress' => 'Kuala Lumpur',
+                'deliveryAddress' => 'Selangor',
+                'totalWeight' => 1
+            ]
+        ];
+
         $response = Http::withHeaders($headers)
             ->timeout(30)
-            ->get('https://api.delyva.app/v1.0/user');
+            ->post('https://api.delyva.app/v1.0/service/instantQuote', $testPayload);
 
         Log::info('Delyva API validation attempt', [
             'api_key_preview' => substr($apiKey, 0, 10) . '...',
