@@ -250,7 +250,7 @@ Route::prefix('test')->group(function () {
             }
 
             // Test the exact same request our callback makes
-            $response = Http::asForm()->post('https://services.leadconnectorhq.com/oauth/token', [
+            $response = Http::asForm()->post('https://api.msgsndr.com/oauth/token', [
                 'client_id' => $clientId,
                 'client_secret' => $clientSecret,
                 'grant_type' => 'authorization_code',
@@ -260,7 +260,7 @@ Route::prefix('test')->group(function () {
 
             return response()->json([
                 'request' => [
-                    'url' => 'https://services.leadconnectorhq.com/oauth/token',
+                    'url' => 'https://api.msgsndr.com/oauth/token',
                     'client_id' => substr($clientId, 0, 10) . '...',
                     'grant_type' => 'authorization_code',
                     'code' => $testCode,

@@ -93,7 +93,7 @@ class HighLevelOAuthController extends Controller
                 'code_preview' => substr($code, 0, 15) . '...'
             ]);
 
-            $tokenResponse = Http::asForm()->post('https://services.leadconnectorhq.com/oauth/token', [
+            $tokenResponse = Http::asForm()->post('https://api.msgsndr.com/oauth/token', [
                 'client_id' => $clientId,
                 'client_secret' => $clientSecret,
                 'grant_type' => 'authorization_code',
@@ -106,7 +106,7 @@ class HighLevelOAuthController extends Controller
                 $responseJson = $tokenResponse->json();
 
                 Log::error('HighLevel OAuth token exchange failed', [
-                    'request_url' => 'https://services.leadconnectorhq.com/oauth/token',
+                    'request_url' => 'https://api.msgsndr.com/oauth/token',
                     'request_data' => [
                         'client_id' => $clientId,
                         'client_secret' => substr($clientSecret, 0, 8) . '...',
@@ -190,7 +190,7 @@ class HighLevelOAuthController extends Controller
             return response()->json(['error' => 'Integration not found or no refresh token'], 404);
         }
 
-        $tokenResponse = Http::post('https://services.leadconnectorhq.com/oauth/token', [
+        $tokenResponse = Http::asForm()->post('https://api.msgsndr.com/oauth/token', [
             'client_id' => config('services.highlevel.client_id'),
             'client_secret' => config('services.highlevel.client_secret'),
             'grant_type' => 'refresh_token',
