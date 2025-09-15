@@ -34,6 +34,47 @@ Route::get('/debug-paths', function () {
     ]);
 });
 
+// Debug route untuk test API validation
+Route::post('/debug-api', function () {
+    $apiKey = request('api_key');
+    if (!$apiKey) {
+        return response()->json(['error' => 'API key required'], 400);
+    }
+
+    $headers = [
+        'X-Delyvax-Access-Token' => $apiKey,
+        'Content-Type' => 'application/json',
+    ];
+
+    $testPayload = [
+        'data' => [
+            'pickupAddress' => 'Kuala Lumpur',
+            'deliveryAddress' => 'Selangor',
+            'totalWeight' => 1
+        ]
+    ];
+
+    try {
+        $response = Http::withHeaders($headers)
+            ->timeout(30)
+            ->post('https://api.delyva.app/v1.0/service/instantQuote', $testPayload);
+
+        return response()->json([
+            'status_code' => $response->status(),
+            'response_body' => $response->body(),
+            'headers_sent' => $headers,
+            'payload_sent' => $testPayload,
+            'success' => $response->successful()
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => $e->getMessage(),
+            'headers_sent' => $headers,
+            'payload_sent' => $testPayload
+        ]);
+    }
+});
+
 // Installation result pages
 Route::get('/install/success', function () {
     $locationId = request()->get('locationId') ?? session('locationId');
