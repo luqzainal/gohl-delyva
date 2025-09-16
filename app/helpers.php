@@ -33,18 +33,52 @@ function ghl_oauth_call($code = '', $method = '')
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_ENCODING => '',
         CURLOPT_MAXREDIRS => 10,
-        CURLOPT_TIMEOUT => 0,
+        CURLOPT_TIMEOUT => 30,
         CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
         CURLOPT_CUSTOMREQUEST => 'POST',
         CURLOPT_POSTFIELDS => $postv,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/x-www-form-urlencoded',
+            'Accept: application/json',
+            'User-Agent: Delyva-HighLevel-Integration/1.0'
+        ],
     );
     curl_setopt_array($curl, $curlfields);
 
     $response = curl_exec($curl);
-    $response = json_decode($response);
+    $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($curl);
     curl_close($curl);
-    return $response;
+
+    Log::info('HighLevel OAuth API call', [
+        'url' => $url,
+        'http_code' => $httpCode,
+        'curl_error' => $curlError,
+        'raw_response' => $response,
+        'response_length' => strlen($response ?? '')
+    ]);
+
+    if ($curlError) {
+        Log::error('CURL error in OAuth call', ['error' => $curlError]);
+        return null;
+    }
+
+    if (!$response) {
+        Log::error('Empty response from HighLevel OAuth API');
+        return null;
+    }
+
+    $decoded = json_decode($response);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        Log::error('JSON decode error in OAuth response', [
+            'json_error' => json_last_error_msg(),
+            'raw_response' => $response
+        ]);
+        return null;
+    }
+
+    return $decoded;
 }
 
 // GHL GET Token

@@ -1,6 +1,9 @@
 <?php
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 use App\Http\Controllers\HighLevelOAuthController;
 use App\Http\Controllers\DelyvaCredentialsController;
@@ -110,6 +113,35 @@ Route::get('/install/error', function () {
 
 // HighLevel OAuth Routes
 Route::prefix('oauth')->group(function () {
+    // Debug callback route that logs everything
+    Route::any('debug-callback', function (Request $request) {
+        $logData = [
+            'timestamp' => now()->toISOString(),
+            'method' => $request->method(),
+            'full_url' => $request->fullUrl(),
+            'headers' => $request->headers->all(),
+            'query_params' => $request->query(),
+            'post_data' => $request->all(),
+            'raw_input' => $request->getContent(),
+            'user_agent' => $request->userAgent(),
+            'ip' => $request->ip(),
+        ];
+
+        Log::info('OAuth DEBUG CALLBACK', $logData);
+
+        // Also save to a file for easy viewing
+        file_put_contents(storage_path('logs/oauth_debug.json'), json_encode($logData, JSON_PRETTY_PRINT) . "\n", FILE_APPEND);
+
+        // Return a user-friendly page showing what was received
+        return response()->view('oauth-debug', [
+            'timestamp' => $logData['timestamp'],
+            'method' => $logData['method'],
+            'url' => $logData['full_url'],
+            'params' => $logData['query_params'],
+            'all_data' => $logData
+        ]);
+    })->name('oauth.debug-callback');
+
     // Generic callback route untuk HighLevel marketplace
     Route::get('callback', [HighLevelOAuthController::class, 'handleCallback'])->name('oauth.callback');
     
