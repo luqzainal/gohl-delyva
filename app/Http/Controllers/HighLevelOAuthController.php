@@ -53,16 +53,48 @@ class HighLevelOAuthController extends Controller
             'all_params' => $request->all()
         ]);
 
-        $response = ghl_token($request);
-        if ($response) {
-            $response->locationId = $locationId;
-            $this->saveTokens($response);
-            return redirect()->route('install.success')->with('locationId', $locationId);
+        // Validate locationId
+        if (!$locationId) {
+            Log::error('OAuth callback missing location_id', [
+                'full_url' => $request->fullUrl(),
+                'all_params' => $request->all()
+            ]);
+            return redirect()->route('install.error')->with([
+                'error' => 'Missing location ID in OAuth callback',
+                'errorId' => 'LOCATION_ID_MISSING_' . time()
+            ]);
         }
-        
+
+        $response = ghl_token($request);
+        if ($response && property_exists($response, 'access_token')) {
+            $response->locationId = $locationId;
+
+            try {
+                $this->saveTokens($response);
+                Log::info('OAuth process completed successfully', [
+                    'location_id' => $locationId
+                ]);
+                return redirect()->route('install.success')->with('locationId', $locationId);
+            } catch (\Exception $e) {
+                Log::error('Failed to save OAuth tokens', [
+                    'location_id' => $locationId,
+                    'error' => $e->getMessage()
+                ]);
+                return redirect()->route('install.error')->with([
+                    'error' => 'Failed to save OAuth tokens: ' . $e->getMessage(),
+                    'errorId' => 'SAVE_FAILED_' . time()
+                ]);
+            }
+        }
+
+        Log::error('OAuth token exchange failed', [
+            'location_id' => $locationId,
+            'response' => $response
+        ]);
+
         return redirect()->route('install.error')->with([
-            'error' => 'Failed to get OAuth token from HighLevel',
-            'errorId' => 'TOKEN_FAILED_' . time()
+            'error' => 'Failed to get valid OAuth token from HighLevel',
+            'errorId' => 'TOKEN_INVALID_' . time()
         ]);
     }
 
