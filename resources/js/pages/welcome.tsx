@@ -2,7 +2,8 @@ import { Head } from '@inertiajs/react';
 
 export default function Welcome() {
     const handleInstallClick = () => {
-        window.open('https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=' + encodeURIComponent(window.location.origin + '/oauth/callback') + '&client_id=664c6c5f66a2a10012e1d08a-l9jgj58q&scope=locations/read+locations/write+contacts.readonly+contacts.write+opportunities.readonly+opportunities.write+calendars.readonly+calendars.write+calendars/events.readonly+calendars/events.write+conversations.readonly+conversations.write+conversations/message.readonly+conversations/message.write+workflows.readonly+oauth.readonly+oauth.write', '_blank');
+        // Use route to HighLevel OAuth redirect to get client_id from config
+        window.location.href = '/oauth/highlevel/redirect';
     };
 
     return (

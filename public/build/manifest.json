@@ -12,7 +12,7 @@
     ]
   },
   "resources/js/app.tsx": {
-    "file": "assets/app-CXMWb5DT.js",
+    "file": "assets/app-6Lh5rn66.js",
     "name": "app",
     "src": "resources/js/app.tsx",
     "isEntry": true,
@@ -27,7 +27,7 @@
     ]
   },
   "resources/js/pages/welcome.tsx": {
-    "file": "assets/welcome-Cr1CWE0k.js",
+    "file": "assets/welcome-CRXLbyON.js",
     "name": "welcome",
     "src": "resources/js/pages/welcome.tsx",
     "isDynamicEntry": true,

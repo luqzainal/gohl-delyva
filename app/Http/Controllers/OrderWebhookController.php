@@ -72,8 +72,15 @@ class OrderWebhookController extends Controller
             return;
         }
 
+        // Dapatkan HL token dari LocationTokens
+        $locationToken = getLocationToken($locationId);
+        if (!$locationToken || !$locationToken->access_token) {
+            Log::error("No HighLevel token for location $locationId");
+            return;
+        }
+
         // Panggil API HL untuk maklumat penuh order
-        $hlToken = $integration->hl_access_token;
+        $hlToken = $locationToken->access_token;
         $orderResponse = Http::withToken($hlToken)
             ->get("https://services.leadconnectorhq.com/payments/orders/$orderId");
 
@@ -273,14 +280,14 @@ class OrderWebhookController extends Controller
      */
     public function getOrders($locationId)
     {
-        $integration = ShippingIntegration::where('location_id', $locationId)->first();
+        $locationToken = getLocationToken($locationId);
         
-        if (!$integration || !$integration->hl_access_token) {
-            return response()->json(['error' => 'Integration not found'], 404);
+        if (!$locationToken || !$locationToken->access_token) {
+            return response()->json(['error' => 'HighLevel token not found'], 404);
         }
 
         // Dapatkan orders dari HL API
-        $response = Http::withToken($integration->hl_access_token)
+        $response = Http::withToken($locationToken->access_token)
             ->get('https://services.leadconnectorhq.com/payments/orders', [
                 'altId' => $locationId,
                 'altType' => 'location'
@@ -331,14 +338,14 @@ class OrderWebhookController extends Controller
      */
     public function getOrderDetails($locationId, $orderId)
     {
-        $integration = ShippingIntegration::where('location_id', $locationId)->first();
+        $locationToken = getLocationToken($locationId);
         
-        if (!$integration || !$integration->hl_access_token) {
-            return response()->json(['error' => 'Integration not found'], 404);
+        if (!$locationToken || !$locationToken->access_token) {
+            return response()->json(['error' => 'HighLevel token not found'], 404);
         }
 
         // Dapatkan order dari HL API
-        $hlResponse = Http::withToken($integration->hl_access_token)
+        $hlResponse = Http::withToken($locationToken->access_token)
             ->get("https://services.leadconnectorhq.com/payments/orders/$orderId");
 
         if (!$hlResponse->successful()) {

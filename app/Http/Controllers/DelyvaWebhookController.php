@@ -158,11 +158,12 @@ class DelyvaWebhookController extends Controller
      */
     private function updateHighLevelOrderStatus($shippingOrder, $status, $orderData)
     {
-        $integration = $shippingOrder->integration;
+        $locationToken = getLocationToken($shippingOrder->location_id);
 
-        if (!$integration || !$integration->hl_access_token) {
-            Log::warning('Cannot update HighLevel order - no integration or token', [
-                'order_id' => $shippingOrder->hl_order_id
+        if (!$locationToken || !$locationToken->access_token) {
+            Log::warning('Cannot update HighLevel order - no token found', [
+                'order_id' => $shippingOrder->hl_order_id,
+                'location_id' => $shippingOrder->location_id
             ]);
             return false;
         }
@@ -203,7 +204,7 @@ class DelyvaWebhookController extends Controller
         }
 
         $headers = [
-            'Authorization' => 'Bearer ' . $integration->hl_access_token,
+            'Authorization' => 'Bearer ' . $locationToken->access_token,
             'Content-Type' => 'application/json',
         ];
 

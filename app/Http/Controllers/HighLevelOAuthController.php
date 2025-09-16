@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ShippingIntegration;
+use App\Models\LocationTokens;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -33,10 +34,8 @@ class HighLevelOAuthController extends Controller
      */
     public function handleCallback(Request $request)
     {
-        $code = $request->get('code');
         $locationId = $request->get('location_id') ?? $request->get('locationId');
-        $state = $request->get('state');
-
+        
         // Extract location_id from URL if not in direct parameters
         if (!$locationId && $request->fullUrl()) {
             $url = $request->fullUrl();
@@ -48,160 +47,46 @@ class HighLevelOAuthController extends Controller
         }
 
         Log::info('OAuth callback received', [
-            'code' => $code ? substr($code, 0, 15) . '...' : null,
+            'code' => $request->get('code') ? substr($request->get('code'), 0, 15) . '...' : null,
             'location_id' => $locationId,
-            'state' => $state,
             'full_url' => $request->fullUrl(),
             'all_params' => $request->all()
         ]);
 
-        if (!$code) {
-            Log::error('OAuth callback missing authorization code', $request->all());
-            return redirect()->route('install.error')->with([
-                'error' => 'Missing authorization code',
-                'errorId' => 'MISSING_CODE_' . time()
-            ]);
+        $response = ghl_token($request);
+        if ($response) {
+            $response->locationId = $locationId;
+            $this->saveTokens($response);
+            return redirect()->route('install.success')->with('locationId', $locationId);
         }
-
-        // Jika tiada locationId, cuba extract dari state atau guna default
-        if (!$locationId) {
-            if ($state) {
-                // Cuba decode state jika ada locationId di dalamnya
-                $stateData = json_decode(base64_decode($state), true);
-                $locationId = $stateData['locationId'] ?? null;
-            }
-            
-            // Jika masih tiada, guna placeholder untuk marketplace installation
-            if (!$locationId) {
-                $locationId = 'marketplace_install_' . time();
-                Log::warning('No locationId provided, using placeholder', ['locationId' => $locationId]);
-            }
-        }
-
-        // Check jika dalam development mode (tiada credentials)
-        $clientId = config('services.highlevel.client_id');
-        $clientSecret = config('services.highlevel.client_secret');
         
-        if (!$clientId || !$clientSecret) {
-            Log::info('Development mode: Simulating OAuth token exchange', [
-                'code' => substr($code, 0, 10) . '...',
-                'location_id' => $locationId
-            ]);
-            
-            // Simulate successful token response untuk development
-            $tokenData = [
-                'access_token' => 'dev_access_token_' . time(),
-                'refresh_token' => 'dev_refresh_token_' . time(),
-                'token_type' => 'Bearer',
-                'expires_in' => 3600
-            ];
-        } else {
-            // Production mode: Actual HighLevel API call
-            Log::info('Attempting HighLevel OAuth token exchange', [
-                'client_id' => substr($clientId, 0, 10) . '...',
-                'redirect_uri' => config('services.highlevel.redirect_uri'),
-                'code_length' => strlen($code),
-                'code_preview' => substr($code, 0, 15) . '...'
-            ]);
+        return redirect()->route('install.error')->with([
+            'error' => 'Failed to get OAuth token from HighLevel',
+            'errorId' => 'TOKEN_FAILED_' . time()
+        ]);
+    }
 
-            $tokenResponse = Http::asForm()
-                ->withHeaders([
-                    'Accept' => 'application/json',
-                    'Content-Type' => 'application/x-www-form-urlencoded'
-                ])
-                ->post('https://api.msgsndr.com/oauth/token', [
-                    'client_id' => $clientId,
-                    'client_secret' => $clientSecret,
-                    'grant_type' => 'authorization_code',
-                    'code' => $code,
-                    'redirect_uri' => config('services.highlevel.redirect_uri'),
-                ]);
 
-            if (!$tokenResponse->successful()) {
-                $responseBody = $tokenResponse->body();
-                $responseJson = $tokenResponse->json();
+    public function saveTokens($tokensData)
+    {
+        $setting = LocationTokens::where('location_id', $tokensData->locationId)->first();
 
-                Log::error('HighLevel OAuth token exchange failed', [
-                    'request_url' => 'https://api.msgsndr.com/oauth/token',
-                    'request_data' => [
-                        'client_id' => $clientId,
-                        'client_secret' => substr($clientSecret, 0, 8) . '...',
-                        'grant_type' => 'authorization_code',
-                        'code' => substr($code, 0, 10) . '...',
-                        'redirect_uri' => config('services.highlevel.redirect_uri'),
-                    ],
-                    'response_status' => $tokenResponse->status(),
-                    'response_body' => $responseBody,
-                    'response_json' => $responseJson,
-                    'response_headers' => $tokenResponse->headers(),
-                    'request_headers' => [
-                        'Content-Type' => 'application/x-www-form-urlencoded',
-                        'Accept' => 'application/json'
-                    ]
-                ]);
-
-                // Check for specific error messages
-                $errorMessage = 'Failed to exchange authorization code with HighLevel';
-                if ($responseJson && isset($responseJson['error'])) {
-                    $errorMessage .= ': ' . $responseJson['error'];
-                    if (isset($responseJson['error_description'])) {
-                        $errorMessage .= ' - ' . $responseJson['error_description'];
-                    }
-                }
-
-                return redirect()->route('install.error')->with([
-                    'error' => $errorMessage,
-                    'errorId' => 'TOKEN_EXCHANGE_FAILED_' . time(),
-                    'debug_info' => [
-                        'status' => $tokenResponse->status(),
-                        'response' => $responseJson,
-                        'body' => $responseBody
-                    ]
-                ]);
-            }
-
-            $tokenData = $tokenResponse->json();
-
-            Log::info('HighLevel OAuth token exchange successful', [
-                'location_id' => $locationId,
-                'token_type' => $tokenData['token_type'] ?? 'unknown',
-                'access_token_preview' => isset($tokenData['access_token']) ? substr($tokenData['access_token'], 0, 50) . '...' : null,
-                'has_refresh_token' => isset($tokenData['refresh_token']),
-                'expires_in' => $tokenData['expires_in'] ?? null,
-                'full_response_keys' => array_keys($tokenData)
-            ]);
+        if (!$setting) {
+            $setting = new LocationTokens();
         }
 
-        try {
-            // Simpan atau kemaskini integration record
-            $integration = ShippingIntegration::updateOrCreate(
-                ['location_id' => $locationId],
-                [
-                    'hl_access_token' => $tokenData['access_token'],
-                    'hl_refresh_token' => $tokenData['refresh_token'] ?? null,
-                ]
-            );
+        $setting->location_id = $tokensData->locationId;
+        $setting->company_id = $tokensData->companyId ?? null;
+        $setting->user_id = $tokensData->userId ?? null;
+        $setting->user_type = $tokensData->userType ?? null;
+        $setting->access_token = $tokensData->access_token;
+        $setting->refresh_token = $tokensData->refresh_token;
+        $setting->save();
 
-            Log::info('HighLevel OAuth successful', [
-                'location_id' => $locationId,
-                'integration_id' => $integration->id
-            ]);
-
-            // Redirect ke success page
-            return redirect()->route('install.success')->with([
-                'locationId' => $locationId
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Failed to save integration record', [
-                'location_id' => $locationId,
-                'error' => $e->getMessage()
-            ]);
-            
-            return redirect()->route('install.error')->with([
-                'error' => 'Failed to save integration data: ' . $e->getMessage(),
-                'errorId' => 'SAVE_FAILED_' . time()
-            ]);
-        }
+        Log::info('HighLevel OAuth tokens saved', [
+            'location_id' => $tokensData->locationId,
+            'setting_id' => $setting->id
+        ]);
     }
 
     /**
@@ -209,38 +94,19 @@ class HighLevelOAuthController extends Controller
      */
     public function refreshToken($locationId)
     {
-        $integration = ShippingIntegration::where('location_id', $locationId)->first();
+        $locationToken = getLocationToken($locationId);
 
-        if (!$integration || !$integration->hl_refresh_token) {
-            return response()->json(['error' => 'Integration not found or no refresh token'], 404);
+        if (!$locationToken || !$locationToken->refresh_token) {
+            return response()->json(['error' => 'Location token not found or no refresh token'], 404);
         }
 
-        $tokenResponse = Http::asForm()
-            ->withHeaders([
-                'Accept' => 'application/json',
-                'Content-Type' => 'application/x-www-form-urlencoded'
-            ])
-            ->post('https://api.msgsndr.com/oauth/token', [
-                'client_id' => config('services.highlevel.client_id'),
-                'client_secret' => config('services.highlevel.client_secret'),
-                'grant_type' => 'refresh_token',
-                'refresh_token' => $integration->hl_refresh_token,
-            ]);
-
-        if (!$tokenResponse->successful()) {
-            Log::error('HighLevel token refresh failed', [
-                'location_id' => $locationId,
-                'response' => $tokenResponse->body()
-            ]);
+        $newTokenRes = newAccessToken($locationToken->refresh_token);
+        
+        if (!$newTokenRes || !property_exists($newTokenRes, 'access_token')) {
             return response()->json(['error' => 'Failed to refresh token'], 500);
         }
 
-        $tokenData = $tokenResponse->json();
-
-        $integration->update([
-            'hl_access_token' => $tokenData['access_token'],
-            'hl_refresh_token' => $tokenData['refresh_token'] ?? $integration->hl_refresh_token,
-        ]);
+        saveNewAccessTokens($newTokenRes);
 
         return response()->json(['message' => 'Token refreshed successfully']);
     }
@@ -250,16 +116,17 @@ class HighLevelOAuthController extends Controller
      */
     public function getIntegrationStatus($locationId)
     {
+        $locationToken = getLocationToken($locationId);
         $integration = ShippingIntegration::where('location_id', $locationId)->first();
 
-        if (!$integration) {
+        if (!$locationToken) {
             return response()->json(['integrated' => false]);
         }
 
         return response()->json([
-            'integrated' => !empty($integration->hl_access_token),
-            'has_delyva_credentials' => !empty($integration->delyva_api_key),
-            'carrier_registered' => !empty($integration->shipping_carrier_id),
+            'integrated' => !empty($locationToken->access_token),
+            'has_delyva_credentials' => $integration ? !empty($integration->delyva_api_key) : false,
+            'carrier_registered' => $integration ? !empty($integration->shipping_carrier_id) : false,
         ]);
     }
 }

@@ -22,7 +22,8 @@ class CarrierRegistrationController extends Controller
             ], 404);
         }
 
-        if (!$integration->hl_access_token) {
+        $locationToken = getLocationToken($locationId);
+        if (!$locationToken || !$locationToken->access_token) {
             return response()->json([
                 'error' => 'HighLevel access token not found'
             ], 400);
@@ -50,7 +51,7 @@ class CarrierRegistrationController extends Controller
         ];
 
         $headers = [
-            'Authorization' => 'Bearer ' . $integration->hl_access_token,
+            'Authorization' => 'Bearer ' . $locationToken->access_token,
             'Content-Type' => 'application/json',
             'Version' => '2021-07-28',
         ];
@@ -135,7 +136,8 @@ class CarrierRegistrationController extends Controller
 
         $status['integration_exists'] = true;
         $status['has_delyva_credentials'] = !empty($integration->delyva_api_key);
-        $status['has_highlevel_token'] = !empty($integration->hl_access_token);
+        $locationToken = getLocationToken($locationId);
+        $status['has_highlevel_token'] = $locationToken && !empty($locationToken->access_token);
         $status['carrier_registered'] = !empty($integration->shipping_carrier_id);
         $status['carrier_id'] = $integration->shipping_carrier_id;
         $status['shipping_enabled'] = $integration->shipping_enabled ?? true;
@@ -204,8 +206,15 @@ class CarrierRegistrationController extends Controller
             ], 404);
         }
 
+        $locationToken = getLocationToken($locationId);
+        if (!$locationToken || !$locationToken->access_token) {
+            return response()->json([
+                'error' => 'HighLevel access token not found'
+            ], 400);
+        }
+
         $headers = [
-            'Authorization' => 'Bearer ' . $integration->hl_access_token,
+            'Authorization' => 'Bearer ' . $locationToken->access_token,
             'Content-Type' => 'application/json',
             'Version' => '2021-07-28',
         ];
@@ -241,6 +250,13 @@ class CarrierRegistrationController extends Controller
             ], 404);
         }
 
+        $locationToken = getLocationToken($locationId);
+        if (!$locationToken || !$locationToken->access_token) {
+            return response()->json([
+                'error' => 'HighLevel access token not found'
+            ], 400);
+        }
+
         $updateData = $request->only([
             'name',
             'description', 
@@ -249,7 +265,7 @@ class CarrierRegistrationController extends Controller
         ]);
 
         $headers = [
-            'Authorization' => 'Bearer ' . $integration->hl_access_token,
+            'Authorization' => 'Bearer ' . $locationToken->access_token,
             'Content-Type' => 'application/json',
             'Version' => '2021-07-28',
         ];
@@ -289,8 +305,15 @@ class CarrierRegistrationController extends Controller
             ], 404);
         }
 
+        $locationToken = getLocationToken($locationId);
+        if (!$locationToken || !$locationToken->access_token) {
+            return response()->json([
+                'error' => 'HighLevel access token not found'
+            ], 400);
+        }
+
         $headers = [
-            'Authorization' => 'Bearer ' . $integration->hl_access_token,
+            'Authorization' => 'Bearer ' . $locationToken->access_token,
             'Content-Type' => 'application/json',
             'Version' => '2021-07-28',
         ];
@@ -335,8 +358,15 @@ class CarrierRegistrationController extends Controller
             ], 404);
         }
 
+        $locationToken = getLocationToken($locationId);
+        if (!$locationToken || !$locationToken->access_token) {
+            return response()->json([
+                'error' => 'HighLevel access token not found'
+            ], 400);
+        }
+
         $headers = [
-            'Authorization' => 'Bearer ' . $integration->hl_access_token,
+            'Authorization' => 'Bearer ' . $locationToken->access_token,
             'Content-Type' => 'application/json',
             'Version' => '2021-07-28',
         ];
@@ -376,31 +406,24 @@ class CarrierRegistrationController extends Controller
      */
     private function refreshTokenAndRetry($integration, $locationId, $carrierData)
     {
-        if (!$integration->hl_refresh_token) {
+        $locationToken = getLocationToken($locationId);
+        if (!$locationToken || !$locationToken->refresh_token) {
             return null;
         }
 
-        // Refresh token
-        $tokenResponse = Http::post('https://services.leadconnectorhq.com/oauth/token', [
-            'client_id' => config('services.highlevel.client_id'),
-            'client_secret' => config('services.highlevel.client_secret'),
-            'grant_type' => 'refresh_token',
-            'refresh_token' => $integration->hl_refresh_token,
-        ]);
-
-        if (!$tokenResponse->successful()) {
+        // Refresh token using helper function
+        $newTokenRes = newAccessToken($locationToken->refresh_token);
+        
+        if (!$newTokenRes || !property_exists($newTokenRes, 'access_token')) {
             return null;
         }
 
-        $tokenData = $tokenResponse->json();
-        $integration->update([
-            'hl_access_token' => $tokenData['access_token'],
-            'hl_refresh_token' => $tokenData['refresh_token'] ?? $integration->hl_refresh_token,
-        ]);
+        // Save new tokens
+        saveNewAccessTokens($newTokenRes);
 
         // Cuba semula request dengan token baru
         $headers = [
-            'Authorization' => 'Bearer ' . $tokenData['access_token'],
+            'Authorization' => 'Bearer ' . $newTokenRes->access_token,
             'Content-Type' => 'application/json',
             'Version' => '2021-07-28',
         ];
