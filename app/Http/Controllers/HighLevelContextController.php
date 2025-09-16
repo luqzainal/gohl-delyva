@@ -45,11 +45,18 @@ class HighLevelContextController extends Controller
                 }
 
                 // Fallback untuk development - return mock data
+                Log::warning('No shared secret configured and no location tokens - OAuth authentication required');
+
                 return response()->json([
-                    'locationId' => 'dev_location_' . time(),
-                    'userId' => 'dev_user_123',
-                    'companyId' => 'dev_company_456',
-                    'debug' => 'Using dev mock data (no shared secret, no location tokens)'
+                    'locationId' => 'no_oauth_' . time(),
+                    'userId' => 'no_oauth_user',
+                    'companyId' => 'no_oauth_company',
+                    'debug' => 'No shared secret configured and no location tokens found',
+                    'action_required' => [
+                        'message' => 'Please complete OAuth authentication first',
+                        'oauth_url' => url('/oauth/highlevel/redirect'),
+                        'instructions' => 'Visit the OAuth URL to authenticate with HighLevel'
+                    ]
                 ]);
             }
 
@@ -99,11 +106,18 @@ class HighLevelContextController extends Controller
             }
 
             // Final fallback for development if no location tokens exist
+            Log::warning('No location tokens found in database - OAuth might not have completed');
+
             return response()->json([
-                'locationId' => 'fallback_location_' . time(),
-                'userId' => 'fallback_user',
-                'companyId' => 'fallback_company',
-                'debug' => 'Using fallback data due to decryption error - no location tokens found'
+                'locationId' => 'no_oauth_' . time(),
+                'userId' => 'no_oauth_user',
+                'companyId' => 'no_oauth_company',
+                'debug' => 'No location tokens found - OAuth authentication required',
+                'action_required' => [
+                    'message' => 'Please complete OAuth authentication first',
+                    'oauth_url' => url('/oauth/highlevel/redirect'),
+                    'instructions' => 'Visit the OAuth URL to authenticate with HighLevel'
+                ]
             ]);
         }
     }

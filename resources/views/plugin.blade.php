@@ -80,6 +80,7 @@
                         locationId = data.locationId;
                         console.log('HighLevel Context:', data);
                         loadShippingStatus();
+                        loadExistingCredentials();
                         updateLocationDisplay();
                     })
                     .catch(err => {
@@ -101,6 +102,41 @@
                     }
                 } catch (err) {
                     console.error('Error loading shipping status:', err);
+                }
+            };
+
+            const loadExistingCredentials = async () => {
+                if (!locationId) return;
+                try {
+                    const response = await fetch(\`/delyva/credentials/\${locationId}\`);
+                    if (response.ok) {
+                        const data = await response.json();
+
+                        // Populate form fields with existing data
+                        if (data.has_credentials) {
+                            const customerIdField = document.getElementById('customer-id');
+                            const companyCodeField = document.getElementById('company-code');
+                            const companyIdField = document.getElementById('company-id');
+                            const userIdField = document.getElementById('user-id');
+
+                            if (customerIdField) customerIdField.value = data.delyva_customer_id || '';
+                            if (companyCodeField) companyCodeField.value = data.delyva_company_code || '';
+                            if (companyIdField) companyIdField.value = data.delyva_company_id || '';
+                            if (userIdField) userIdField.value = data.delyva_user_id || '';
+
+                            // Show API key preview if exists
+                            if (data.api_key_preview) {
+                                const apiKeyField = document.getElementById('api-key');
+                                if (apiKeyField) {
+                                    apiKeyField.placeholder = \`Current: \${data.api_key_preview}\`;
+                                }
+                            }
+
+                            console.log('Loaded existing credentials:', data);
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error loading existing credentials:', err);
                 }
             };
 
@@ -173,8 +209,26 @@
 
             const updateLocationDisplay = () => {
                 const locationDisplay = document.getElementById('location-display');
-                if (locationDisplay) {
-                    locationDisplay.innerHTML = locationId ? \`<p class="text-xs text-gray-500 mt-2">Location: \${locationId}</p>\` : '';
+                if (locationDisplay && locationId) {
+                    if (locationId.startsWith('no_oauth_')) {
+                        locationDisplay.innerHTML = \`
+                            <div class="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded-md">
+                                <p class="text-xs text-yellow-800 font-medium">⚠️ OAuth Authentication Required</p>
+                                <p class="text-xs text-yellow-700 mt-1">Please complete HighLevel authentication first to use this plugin.</p>
+                            </div>
+                        \`;
+                    } else if (locationId.startsWith('fallback_') || locationId.startsWith('dev_')) {
+                        locationDisplay.innerHTML = \`
+                            <div class="mt-2 p-2 bg-blue-100 border border-blue-300 rounded-md">
+                                <p class="text-xs text-blue-800 font-medium">🔧 Development Mode</p>
+                                <p class="text-xs text-blue-700 mt-1">Location: \${locationId}</p>
+                            </div>
+                        \`;
+                    } else {
+                        locationDisplay.innerHTML = \`<p class="text-xs text-gray-500 mt-2">📍 Location: \${locationId}</p>\`;
+                    }
+                } else if (locationDisplay) {
+                    locationDisplay.innerHTML = '';
                 }
             };
 

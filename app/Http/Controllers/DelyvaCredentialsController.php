@@ -140,7 +140,13 @@ class DelyvaCredentialsController extends Controller
         return response()->json([
             'has_credentials' => !empty($integration->delyva_api_key),
             'delyva_customer_id' => $integration->delyva_customer_id,
-            // Jangan expose API key dan secret dalam response
+            'delyva_company_code' => $integration->delyva_company_code,
+            'delyva_company_id' => $integration->delyva_company_id,
+            'delyva_user_id' => $integration->delyva_user_id,
+            'api_key_preview' => $integration->delyva_api_key ?
+                substr($integration->delyva_api_key, 0, 10) . '...' : null,
+            'has_api_secret' => !empty($integration->delyva_api_secret),
+            // Jangan expose API key dan secret lengkap dalam response untuk security
         ]);
     }
 
