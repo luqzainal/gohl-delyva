@@ -67,6 +67,17 @@
             };
 
             const handleHighLevelMessage = (event) => {
+                // Check if HighLevel sends location data directly in any format
+                if (event.data?.locationId || event.data?.location_id) {
+                    const receivedLocationId = event.data.locationId || event.data.location_id;
+                    console.log('Received location ID directly from HighLevel:', receivedLocationId);
+                    locationId = receivedLocationId;
+                    loadShippingStatus();
+                    loadExistingCredentials();
+                    updateLocationDisplay();
+                    return;
+                }
+
                 if (event.data?.message === 'REQUEST_USER_DATA_RESPONSE') {
                     const encryptedPayload = event.data.payload;
 
@@ -85,8 +96,39 @@
                     })
                     .catch(err => {
                         console.error('Error decrypting context:', err);
-                        locationId = 'test_location_dev';
+
+                        // Try to get location from URL parameters first (dari HighLevel)
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const urlLocationId = urlParams.get('location_id') || urlParams.get('locationId');
+
+                        if (urlLocationId) {
+                            console.log('Using location ID from URL:', urlLocationId);
+                            locationId = urlLocationId;
+                        } else {
+                            // Try to extract from referrer URL (HighLevel iframe context)
+                            const referrer = document.referrer;
+                            let referrerLocationId = null;
+
+                            if (referrer && referrer.includes('app.gohighlevel.com')) {
+                                const referrerUrl = new URL(referrer);
+                                const pathParts = referrerUrl.pathname.split('/');
+                                const locationIndex = pathParts.indexOf('location');
+                                if (locationIndex !== -1 && pathParts[locationIndex + 1]) {
+                                    referrerLocationId = pathParts[locationIndex + 1];
+                                    console.log('Extracted location ID from referrer:', referrerLocationId);
+                                }
+                            }
+
+                            if (referrerLocationId) {
+                                locationId = referrerLocationId;
+                            } else {
+                                console.warn('No location ID found anywhere, showing error message');
+                                locationId = null; // This will trigger OAuth required message
+                            }
+                        }
+
                         updateLocationDisplay();
+                        loadExistingCredentials();
                     });
                 }
             };
@@ -209,7 +251,17 @@
 
             const updateLocationDisplay = () => {
                 const locationDisplay = document.getElementById('location-display');
-                if (locationDisplay && locationId) {
+                if (locationDisplay) {
+                    if (!locationId) {
+                        locationDisplay.innerHTML = \`
+                            <div class="mt-2 p-2 bg-red-100 border border-red-300 rounded-md">
+                                <p class="text-xs text-red-800 font-medium">❌ Location ID Not Found</p>
+                                <p class="text-xs text-red-700 mt-1">Unable to detect HighLevel location. Please ensure plugin is accessed from within HighLevel.</p>
+                            </div>
+                        \`;
+                        return;
+                    }
+
                     if (locationId.startsWith('no_oauth_')) {
                         locationDisplay.innerHTML = \`
                             <div class="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded-md">
