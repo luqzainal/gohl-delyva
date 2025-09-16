@@ -3,6 +3,7 @@
 use App\Models\AppCredentials;
 use App\Models\Credentials;
 use App\Models\LocationTokens;
+use Illuminate\Support\Facades\Log;
 
 function ghl_oauth_call($code = '', $method = '')
 {
@@ -162,9 +163,10 @@ function getLocationToken($locationId)
 function newAccessToken($refreshToken)
 {
     $url = 'https://api.msgsndr.com/oauth/token';
+    $creds = getAppCredentials();
     $data = [
-        'client_id' => getAppCredentials()->client_id,
-        'client_secret' => getAppCredentials()->client_secret,
+        'client_id' => $creds['client_id'],
+        'client_secret' => $creds['client_secret'],
         'refresh_token' => $refreshToken,
         'grant_type' => 'refresh_token'
     ];
@@ -240,5 +242,10 @@ function getAppCredentials()
             'client_secret' => config('services.highlevel.client_secret')
         ];
     }
-    return $appCredential;
+
+    // Convert model to array to ensure consistent access pattern
+    return [
+        'client_id' => $appCredential->client_id,
+        'client_secret' => $appCredential->client_secret
+    ];
 }
