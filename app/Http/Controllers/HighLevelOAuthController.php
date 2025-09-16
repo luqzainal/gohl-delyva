@@ -34,14 +34,39 @@ class HighLevelOAuthController extends Controller
      */
     public function handleCallback(Request $request)
     {
-        $locationId = $request->get('location_id') ?? $request->get('locationId');
-        
+        // Try multiple ways to get location_id from HighLevel
+        $locationId = $request->get('location_id')
+                   ?? $request->get('locationId')
+                   ?? $request->get('loc_id')
+                   ?? $request->get('ghl_location_id')
+                   ?? $request->get('sub_account_id')
+                   ?? $request->header('X-Location-Id')
+                   ?? $request->header('X-GHL-Location-Id');
+
         // Extract location_id from URL if not in direct parameters
         if (!$locationId && $request->fullUrl()) {
             $url = $request->fullUrl();
-            if (preg_match('/[?&]location_id=([^&]+)/', $url, $matches)) {
-                $locationId = $matches[1];
-            } elseif (preg_match('/[?&]locationId=([^&]+)/', $url, $matches)) {
+            $patterns = [
+                '/[?&]location_id=([^&]+)/',
+                '/[?&]locationId=([^&]+)/',
+                '/[?&]loc_id=([^&]+)/',
+                '/[?&]ghl_location_id=([^&]+)/',
+                '/[?&]sub_account_id=([^&]+)/',
+            ];
+
+            foreach ($patterns as $pattern) {
+                if (preg_match($pattern, $url, $matches)) {
+                    $locationId = $matches[1];
+                    break;
+                }
+            }
+        }
+
+        // Try to extract from state parameter if present
+        if (!$locationId && $request->get('state')) {
+            $state = $request->get('state');
+            // HighLevel sometimes embeds location_id in state parameter
+            if (preg_match('/location_id[=:]([^&,;]+)/', $state, $matches)) {
                 $locationId = $matches[1];
             }
         }
@@ -53,20 +78,45 @@ class HighLevelOAuthController extends Controller
             'all_params' => $request->all()
         ]);
 
-        // Validate locationId
-        if (!$locationId) {
-            Log::error('OAuth callback missing location_id', [
-                'full_url' => $request->fullUrl(),
-                'all_params' => $request->all()
-            ]);
-            return redirect()->route('install.error')->with([
-                'error' => 'Missing location ID in OAuth callback',
-                'errorId' => 'LOCATION_ID_MISSING_' . time()
-            ]);
-        }
+        // Log location_id detection attempts
+        Log::info('Location ID detection attempts', [
+            'found_location_id' => $locationId,
+            'all_params' => $request->all(),
+            'headers_checked' => [
+                'X-Location-Id' => $request->header('X-Location-Id'),
+                'X-GHL-Location-Id' => $request->header('X-GHL-Location-Id')
+            ]
+        ]);
 
         $response = ghl_token($request);
         if ($response && property_exists($response, 'access_token')) {
+            // If location_id still missing, try to get it from token response
+            if (!$locationId) {
+                $locationId = $response->locationId ?? $response->location_id ?? $response->subAccountId ?? null;
+
+                Log::info('Extracted location_id from token response', [
+                    'location_id' => $locationId,
+                    'token_response_keys' => array_keys((array)$response)
+                ]);
+            }
+
+            // Still no location_id? Try to get it from userInfo endpoint
+            if (!$locationId && isset($response->access_token)) {
+                $locationId = $this->getLocationIdFromUserInfo($response->access_token);
+            }
+
+            // Final check
+            if (!$locationId) {
+                Log::error('Could not determine location_id from any source', [
+                    'request_params' => $request->all(),
+                    'token_response' => $response
+                ]);
+                return redirect()->route('install.error')->with([
+                    'error' => 'Missing location ID - cannot complete installation',
+                    'errorId' => 'LOCATION_ID_MISSING_' . time()
+                ]);
+            }
+
             $response->locationId = $locationId;
 
             try {
@@ -160,5 +210,53 @@ class HighLevelOAuthController extends Controller
             'has_delyva_credentials' => $integration ? !empty($integration->delyva_api_key) : false,
             'carrier_registered' => $integration ? !empty($integration->shipping_carrier_id) : false,
         ]);
+    }
+
+    /**
+     * Get location_id from HighLevel user info endpoint
+     */
+    private function getLocationIdFromUserInfo($accessToken)
+    {
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $accessToken,
+                'Accept' => 'application/json',
+            ])->get('https://services.leadconnectorhq.com/users/me');
+
+            if ($response->successful()) {
+                $userInfo = $response->json();
+
+                Log::info('Retrieved user info from HighLevel', [
+                    'user_info_keys' => array_keys($userInfo ?? [])
+                ]);
+
+                // Check various possible location_id fields
+                $locationId = $userInfo['locationId']
+                           ?? $userInfo['location_id']
+                           ?? $userInfo['subAccountId']
+                           ?? $userInfo['sub_account_id']
+                           ?? $userInfo['accountId']
+                           ?? null;
+
+                // If user has locations array, get the first one
+                if (!$locationId && isset($userInfo['locations']) && is_array($userInfo['locations'])) {
+                    $locationId = $userInfo['locations'][0]['id'] ?? null;
+                }
+
+                return $locationId;
+            }
+
+            Log::error('Failed to get user info from HighLevel', [
+                'status' => $response->status(),
+                'response' => $response->body()
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Exception getting user info from HighLevel', [
+                'error' => $e->getMessage()
+            ]);
+        }
+
+        return null;
     }
 }

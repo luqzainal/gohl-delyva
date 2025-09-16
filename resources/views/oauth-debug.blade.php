@@ -62,6 +62,28 @@
             <div class="param"><strong>state:</strong> (Optional) State parameter</div>
         </div>
 
+        <div class="info-box">
+            <h3>🔧 Location ID Detection</h3>
+            @php
+                $possibleLocationIds = [];
+                foreach(['location_id', 'locationId', 'loc_id', 'ghl_location_id', 'sub_account_id'] as $param) {
+                    if(isset($params[$param])) {
+                        $possibleLocationIds[$param] = $params[$param];
+                    }
+                }
+            @endphp
+
+            @if(empty($possibleLocationIds))
+                <p style="color: #dc3545;">❌ No location_id parameter found in any expected format!</p>
+                <p><strong>Checking:</strong> location_id, locationId, loc_id, ghl_location_id, sub_account_id</p>
+            @else
+                <p style="color: #28a745;">✅ Found potential location ID(s):</p>
+                @foreach($possibleLocationIds as $param => $value)
+                    <div class="param"><strong>{{ $param }}:</strong> <code>{{ $value }}</code></div>
+                @endforeach
+            @endif
+        </div>
+
         <details>
             <summary><strong>📊 Full Request Data</strong></summary>
             <pre>{{ json_encode($all_data, JSON_PRETTY_PRINT) }}</pre>
