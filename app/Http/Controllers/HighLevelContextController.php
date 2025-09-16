@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use App\Models\LocationTokens;
 
 class HighLevelContextController extends Controller
 {
@@ -26,12 +27,29 @@ class HighLevelContextController extends Controller
             
             if (!$sharedSecret) {
                 Log::warning('HighLevel shared secret not configured');
-                
+
+                // Try to get the actual location_id from location_tokens table
+                $locationToken = LocationTokens::first();
+
+                if ($locationToken) {
+                    Log::info('Using real location from database (no shared secret)', [
+                        'location_id' => $locationToken->location_id
+                    ]);
+
+                    return response()->json([
+                        'locationId' => $locationToken->location_id,
+                        'userId' => $locationToken->user_id,
+                        'companyId' => $locationToken->company_id,
+                        'debug' => 'Using real location data from database (no shared secret configured)'
+                    ]);
+                }
+
                 // Fallback untuk development - return mock data
                 return response()->json([
                     'locationId' => 'dev_location_' . time(),
                     'userId' => 'dev_user_123',
-                    'companyId' => 'dev_company_456'
+                    'companyId' => 'dev_company_456',
+                    'debug' => 'Using dev mock data (no shared secret, no location tokens)'
                 ]);
             }
 
@@ -64,12 +82,28 @@ class HighLevelContextController extends Controller
                 'encrypted_data_length' => strlen($encryptedData)
             ]);
 
-            // Fallback untuk development
+            // Try to get the actual location_id from location_tokens table
+            $locationToken = LocationTokens::first();
+
+            if ($locationToken) {
+                Log::info('Using real location from database as fallback', [
+                    'location_id' => $locationToken->location_id
+                ]);
+
+                return response()->json([
+                    'locationId' => $locationToken->location_id,
+                    'userId' => $locationToken->user_id,
+                    'companyId' => $locationToken->company_id,
+                    'debug' => 'Using real location data from database due to decryption error'
+                ]);
+            }
+
+            // Final fallback for development if no location tokens exist
             return response()->json([
                 'locationId' => 'fallback_location_' . time(),
                 'userId' => 'fallback_user',
                 'companyId' => 'fallback_company',
-                'debug' => 'Using fallback data due to decryption error'
+                'debug' => 'Using fallback data due to decryption error - no location tokens found'
             ]);
         }
     }
