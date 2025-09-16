@@ -9,14 +9,27 @@ function ghl_oauth_call($code = '', $method = '')
 {
     $cred = getAppCredentials();
 
-    $url = 'https://api.msgsndr.com/oauth/token';
+    // Use the official HighLevel OAuth endpoint
+    $url = 'https://services.leadconnectorhq.com/oauth/token';
     $curl = curl_init();
+
     $data = [];
     $data['client_id'] = $cred['client_id'];
     $data['client_secret'] = $cred['client_secret'];
-    $md = empty($method) ? 'code' : 'refresh_token';
-    $data[$md] = $code;
-    $data['grant_type'] = empty($method) ? 'authorization_code' : 'refresh_token';
+
+    if (empty($method)) {
+        // Authorization code flow
+        $data['grant_type'] = 'authorization_code';
+        $data['code'] = $code;
+        $data['redirect_uri'] = config('services.highlevel.redirect_uri');
+        $data['user_type'] = 'Location'; // As per documentation
+    } else {
+        // Refresh token flow
+        $data['grant_type'] = 'refresh_token';
+        $data['refresh_token'] = $code;
+        $data['user_type'] = 'Location';
+    }
+
     $postv = '';
     $x = 0;
 
@@ -24,7 +37,7 @@ function ghl_oauth_call($code = '', $method = '')
         if ($x > 0) {
             $postv .= '&';
         }
-        $postv .= $key . '=' . $value;
+        $postv .= urlencode($key) . '=' . urlencode($value);
         $x++;
     }
 
@@ -56,7 +69,15 @@ function ghl_oauth_call($code = '', $method = '')
         'http_code' => $httpCode,
         'curl_error' => $curlError,
         'raw_response' => $response,
-        'response_length' => strlen($response ?? '')
+        'response_length' => strlen($response ?? ''),
+        'request_data' => [
+            'client_id' => substr($data['client_id'], 0, 10) . '...',
+            'grant_type' => $data['grant_type'],
+            'user_type' => $data['user_type'] ?? 'not_set',
+            'redirect_uri' => $data['redirect_uri'] ?? 'not_set',
+            'has_code' => !empty($data['code']),
+            'has_refresh_token' => !empty($data['refresh_token'])
+        ]
     ]);
 
     if ($curlError) {

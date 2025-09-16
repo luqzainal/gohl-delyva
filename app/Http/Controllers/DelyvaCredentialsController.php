@@ -221,21 +221,14 @@ class DelyvaCredentialsController extends Controller
             'Content-Type' => 'application/json',
         ];
 
-        // Test dengan endpoint service/instantQuote untuk validation
-        // Gunakan payload lengkap dengan semua parameters yang ada
+        // Simple validation with a basic endpoint that should work for all API keys
         $testPayload = [
             'customerId' => $customerId ? (int)$customerId : 1,
             'origin' => [
-                'address1' => 'Kuala Lumpur',
-                'city' => 'Kuala Lumpur',
-                'state' => 'Kuala Lumpur',
                 'postcode' => '50000',
                 'country' => 'MY',
             ],
             'destination' => [
-                'address1' => 'Petaling Jaya',
-                'city' => 'Petaling Jaya',
-                'state' => 'Selangor',
                 'postcode' => '47400',
                 'country' => 'MY',
             ],
@@ -257,6 +250,7 @@ class DelyvaCredentialsController extends Controller
             $testPayload['userId'] = $userId;
         }
 
+        // Try the instantQuote endpoint
         $response = Http::withHeaders($headers)
             ->timeout(30)
             ->post('https://api.delyva.app/v1.0/service/instantQuote', $testPayload);
@@ -264,39 +258,55 @@ class DelyvaCredentialsController extends Controller
         Log::info('Delyva API validation attempt', [
             'api_key_preview' => substr($apiKey, 0, 10) . '...',
             'status' => $response->status(),
-            'headers_sent' => $headers,
-            'response_body' => $response->body(),
-            'response_headers' => $response->headers()
+            'response_preview' => substr($response->body(), 0, 300),
+            'payload_sent' => $testPayload
         ]);
 
-        // Check if authentication successful (including 400 with "No service available")
-        $responseData = $response->json();
-
-        if ($response->successful() ||
-            ($response->status() == 400 && isset($responseData['error']['message']) && $responseData['error']['message'] == 'No service available')) {
-
+        // Check if successful
+        if ($response->successful()) {
             Log::info('Delyva credentials validation successful', [
                 'status' => $response->status(),
-                'response_data' => $responseData
+                'api_key_preview' => substr($apiKey, 0, 10) . '...'
             ]);
+
             return [
                 'valid' => true,
-                'user_data' => $responseData,
+                'user_data' => $response->json(),
                 'error' => null
             ];
         }
 
-        // Detailed error messages based on status code
+        // Check for "No service available" which indicates valid auth but no services
+        $responseData = $response->json();
+        if ($response->status() == 400 &&
+            isset($responseData['error']['message']) &&
+            $responseData['error']['message'] == 'No service available') {
+
+            Log::info('Delyva credentials valid but no service available', [
+                'api_key_preview' => substr($apiKey, 0, 10) . '...'
+            ]);
+
+            return [
+                'valid' => true,
+                'user_data' => ['message' => 'API key valid, no services available for this route'],
+                'error' => null
+            ];
+        }
+
+        // Handle specific error cases
         $errorMessage = 'Unknown error occurred';
         switch ($response->status()) {
             case 401:
-                $errorMessage = 'Invalid API key or unauthorized access';
+                $errorMessage = 'Invalid API key. Please check your Delyva API key.';
                 break;
             case 403:
-                $errorMessage = 'API key is valid but access is forbidden. Check your API key permissions.';
+                $errorMessage = 'Access forbidden. Your API key may be restricted or invalid.';
                 break;
             case 404:
                 $errorMessage = 'API endpoint not found. Please verify the Delyva API version.';
+                break;
+            case 422:
+                $errorMessage = 'Invalid request data. Please check the payload format.';
                 break;
             case 429:
                 $errorMessage = 'Rate limit exceeded. Please try again later.';
@@ -305,13 +315,18 @@ class DelyvaCredentialsController extends Controller
                 $errorMessage = 'Delyva API server error. Please try again later.';
                 break;
             default:
-                $errorMessage = 'API request failed with status ' . $response->status();
+                if (isset($responseData['error']['message'])) {
+                    $errorMessage = 'API Error: ' . $responseData['error']['message'];
+                } else {
+                    $errorMessage = 'API request failed with status ' . $response->status();
+                }
         }
 
         Log::warning('Delyva credentials validation failed', [
             'status' => $response->status(),
             'response' => $response->body(),
-            'error_message' => $errorMessage
+            'error_message' => $errorMessage,
+            'api_key_preview' => substr($apiKey, 0, 10) . '...'
         ]);
 
         return [

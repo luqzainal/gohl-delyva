@@ -196,6 +196,294 @@ Route::prefix('tracking')->group(function () {
     Route::get('info/{locationId}/{orderId}', [DelyvaWebhookController::class, 'getTrackingInfo'])->name('tracking.info');
 });
 
+// API Testing Routes untuk Postman
+Route::prefix('api/test')->group(function () {
+    // Token management endpoints
+    Route::get('tokens', function() {
+        $tokens = \App\Models\LocationTokens::all();
+        return response()->json([
+            'total_tokens' => $tokens->count(),
+            'tokens' => $tokens->map(function($token) {
+                return [
+                    'id' => $token->id,
+                    'location_id' => $token->location_id,
+                    'access_token_format' => [
+                        'length' => strlen($token->access_token ?? ''),
+                        'is_jwt' => str_contains($token->access_token ?? '', '.'),
+                        'preview' => substr($token->access_token ?? '', 0, 50) . '...',
+                        'parts_count' => count(explode('.', $token->access_token ?? ''))
+                    ],
+                    'refresh_token_format' => [
+                        'length' => strlen($token->refresh_token ?? ''),
+                        'is_jwt' => str_contains($token->refresh_token ?? '', '.'),
+                        'preview' => substr($token->refresh_token ?? '', 0, 50) . '...',
+                        'parts_count' => count(explode('.', $token->refresh_token ?? ''))
+                    ],
+                    'created_at' => $token->created_at,
+                    'updated_at' => $token->updated_at
+                ];
+            })
+        ]);
+    })->name('api.test.tokens');
+
+    Route::get('token/{locationId}', function($locationId) {
+        $token = \App\Models\LocationTokens::where('location_id', $locationId)->first();
+
+        if (!$token) {
+            return response()->json(['error' => 'Token not found'], 404);
+        }
+
+        return response()->json([
+            'location_id' => $token->location_id,
+            'access_token' => [
+                'value' => $token->access_token,
+                'length' => strlen($token->access_token),
+                'is_jwt' => str_contains($token->access_token, '.'),
+                'jwt_parts' => explode('.', $token->access_token),
+                'decoded_header' => str_contains($token->access_token, '.') ?
+                    json_decode(base64_decode(explode('.', $token->access_token)[0]), true) : null,
+                'expires_info' => 'Check JWT payload for exp claim'
+            ],
+            'refresh_token' => [
+                'value' => $token->refresh_token,
+                'length' => strlen($token->refresh_token),
+                'is_jwt' => str_contains($token->refresh_token, '.'),
+                'jwt_parts' => str_contains($token->refresh_token, '.') ? explode('.', $token->refresh_token) : null
+            ]
+        ]);
+    })->name('api.test.token.detail');
+
+    Route::post('token/convert/{locationId}', function(Request $request, $locationId) {
+        $token = \App\Models\LocationTokens::where('location_id', $locationId)->first();
+
+        if (!$token) {
+            return response()->json(['error' => 'Token not found'], 404);
+        }
+
+        $format = $request->get('format', 'simple'); // simple, hash, encrypted
+
+        switch($format) {
+            case 'simple':
+                $newAccessToken = 'simple_' . bin2hex(random_bytes(32));
+                $newRefreshToken = 'refresh_' . bin2hex(random_bytes(32));
+                break;
+
+            case 'hash':
+                $newAccessToken = 'hash_' . hash('sha256', $token->access_token . time());
+                $newRefreshToken = 'hash_' . hash('sha256', $token->refresh_token . time());
+                break;
+
+            case 'encrypted':
+                $key = config('app.key');
+                $newAccessToken = 'enc_' . base64_encode(encrypt($token->access_token));
+                $newRefreshToken = 'enc_' . base64_encode(encrypt($token->refresh_token));
+                break;
+
+            default:
+                return response()->json(['error' => 'Invalid format'], 400);
+        }
+
+        // Save original tokens for backup
+        $backup = [
+            'original_access_token' => $token->access_token,
+            'original_refresh_token' => $token->refresh_token,
+            'converted_at' => now()
+        ];
+
+        $token->access_token = $newAccessToken;
+        $token->refresh_token = $newRefreshToken;
+        $token->save();
+
+        return response()->json([
+            'message' => 'Token format converted',
+            'format' => $format,
+            'location_id' => $locationId,
+            'new_tokens' => [
+                'access_token' => $newAccessToken,
+                'refresh_token' => $newRefreshToken
+            ],
+            'backup' => $backup
+        ]);
+    })->name('api.test.token.convert');
+
+    Route::post('oauth/simulate', function(Request $request) {
+        $code = $request->get('code', 'test_' . bin2hex(random_bytes(16)));
+        $locationId = $request->get('location_id', 'test_loc_' . bin2hex(random_bytes(8)));
+
+        // Simulate OAuth response
+        $simulatedTokens = [
+            'access_token' => 'sim_access_' . bin2hex(random_bytes(32)),
+            'refresh_token' => 'sim_refresh_' . bin2hex(random_bytes(32)),
+            'token_type' => 'Bearer',
+            'expires_in' => 3600,
+            'scope' => 'locations.readonly contacts.write'
+        ];
+
+        // Save to database
+        $tokenRecord = \App\Models\LocationTokens::updateOrCreate(
+            ['location_id' => $locationId],
+            [
+                'access_token' => $simulatedTokens['access_token'],
+                'refresh_token' => $simulatedTokens['refresh_token'],
+                'company_id' => 'test_company',
+                'user_id' => 'test_user',
+                'user_type' => 'location'
+            ]
+        );
+
+        return response()->json([
+            'message' => 'Simulated OAuth tokens created',
+            'oauth_response' => $simulatedTokens,
+            'saved_to_db' => $tokenRecord->id,
+            'location_id' => $locationId
+        ]);
+    })->name('api.test.oauth.simulate');
+
+    // REAL OAuth testing endpoint
+    Route::post('oauth/real', function(Request $request) {
+        $code = $request->get('code');
+        $locationId = $request->get('location_id');
+
+        if (!$code) {
+            return response()->json([
+                'error' => 'Authorization code required',
+                'usage' => 'POST /api/test/oauth/real with {"code": "real_code", "location_id": "real_location_id"}'
+            ], 400);
+        }
+
+        try {
+            // Get app credentials
+            $creds = getAppCredentials();
+
+            Log::info('Real OAuth API test initiated', [
+                'code_length' => strlen($code),
+                'code_preview' => substr($code, 0, 20) . '...',
+                'location_id' => $locationId,
+                'client_id' => substr($creds['client_id'], 0, 10) . '...',
+                'redirect_uri' => config('services.highlevel.redirect_uri')
+            ]);
+
+            // Make real call to HighLevel
+            $response = ghl_oauth_call($code, '');
+
+            if ($response) {
+                // Check if successful
+                if (property_exists($response, 'access_token')) {
+                    // Add location ID to response
+                    if ($locationId) {
+                        $response->locationId = $locationId;
+                    }
+
+                    // Try to save to database
+                    try {
+                        $tokenRecord = \App\Models\LocationTokens::updateOrCreate(
+                            ['location_id' => $locationId ?: 'unknown_location_' . time()],
+                            [
+                                'access_token' => $response->access_token,
+                                'refresh_token' => $response->refresh_token ?? null,
+                                'company_id' => $response->companyId ?? null,
+                                'user_id' => $response->userId ?? null,
+                                'user_type' => $response->userType ?? 'location'
+                            ]
+                        );
+
+                        Log::info('Real OAuth tokens saved successfully', [
+                            'location_id' => $locationId,
+                            'token_id' => $tokenRecord->id,
+                            'access_token_length' => strlen($response->access_token),
+                            'has_refresh_token' => !empty($response->refresh_token)
+                        ]);
+
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Real OAuth tokens retrieved and saved',
+                            'data' => [
+                                'location_id' => $locationId,
+                                'token_id' => $tokenRecord->id,
+                                'access_token' => [
+                                    'length' => strlen($response->access_token),
+                                    'preview' => substr($response->access_token, 0, 50) . '...',
+                                    'is_jwt' => str_contains($response->access_token, '.'),
+                                    'jwt_parts' => str_contains($response->access_token, '.') ? count(explode('.', $response->access_token)) : 0
+                                ],
+                                'refresh_token' => [
+                                    'exists' => !empty($response->refresh_token),
+                                    'length' => strlen($response->refresh_token ?? ''),
+                                    'preview' => $response->refresh_token ? substr($response->refresh_token, 0, 50) . '...' : null
+                                ],
+                                'additional_fields' => [
+                                    'companyId' => $response->companyId ?? null,
+                                    'userId' => $response->userId ?? null,
+                                    'userType' => $response->userType ?? null,
+                                    'scope' => $response->scope ?? null
+                                ]
+                            ],
+                            'raw_response_keys' => array_keys((array)$response)
+                        ]);
+
+                    } catch (\Exception $saveError) {
+                        Log::error('Failed to save real OAuth tokens', [
+                            'error' => $saveError->getMessage(),
+                            'location_id' => $locationId
+                        ]);
+
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'OAuth successful but failed to save to database',
+                            'error' => $saveError->getMessage(),
+                            'oauth_response' => $response
+                        ], 500);
+                    }
+                } else {
+                    // OAuth failed
+                    Log::error('Real OAuth API call failed', [
+                        'response' => $response,
+                        'error' => $response->error ?? 'Unknown error',
+                        'error_description' => $response->error_description ?? 'No description'
+                    ]);
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'OAuth failed',
+                        'error' => $response->error ?? 'Unknown error',
+                        'error_description' => $response->error_description ?? 'No description',
+                        'full_response' => $response,
+                        'troubleshooting' => [
+                            'code_expired' => 'Authorization codes expire in 60 seconds',
+                            'code_used' => 'Codes can only be used once',
+                            'redirect_uri_mismatch' => 'Check if redirect URI in HighLevel matches: ' . config('services.highlevel.redirect_uri'),
+                            'client_credentials' => 'Verify client_id and client_secret are correct'
+                        ]
+                    ], 400);
+                }
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No response from HighLevel OAuth API',
+                    'troubleshooting' => [
+                        'check_logs' => 'Check Laravel logs for CURL errors',
+                        'network_issue' => 'Possible network connectivity issue'
+                    ]
+                ], 500);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Exception in real OAuth test', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Exception occurred',
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ], 500);
+        }
+    })->name('api.test.oauth.real');
+});
+
 // Testing Routes (untuk development sahaja)
 Route::prefix('test')->group(function () {
     Route::get('credentials', [TestController::class, 'testCredentials'])->name('test.credentials');

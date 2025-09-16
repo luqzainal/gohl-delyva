@@ -1,0 +1,259 @@
+{
+  "info": {
+    "name": "Delyva HighLevel Integration API Tests",
+    "description": "Collection untuk test token management dan OAuth flow",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Token Management",
+      "item": [
+        {
+          "name": "1. Get All Tokens",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/test/tokens",
+              "host": ["{{base_url}}"],
+              "path": ["api", "test", "tokens"]
+            },
+            "description": "Retrieve all tokens and their formats (JWT vs Simple)"
+          }
+        },
+        {
+          "name": "2. Get Token Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/test/token/{{location_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "test", "token", "{{location_id}}"]
+            },
+            "description": "Get detailed token information including JWT decode"
+          }
+        },
+        {
+          "name": "3. Convert Token to Simple Format",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"format\": \"simple\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/test/token/convert/{{location_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "test", "token", "convert", "{{location_id}}"]
+            },
+            "description": "Convert JWT tokens to simple format"
+          }
+        },
+        {
+          "name": "4. Convert Token to Hash Format",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"format\": \"hash\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/test/token/convert/{{location_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "test", "token", "convert", "{{location_id}}"]
+            },
+            "description": "Convert tokens to SHA256 hash format"
+          }
+        },
+        {
+          "name": "5. Convert Token to Encrypted Format",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"format\": \"encrypted\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/test/token/convert/{{location_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "test", "token", "convert", "{{location_id}}"]
+            },
+            "description": "Convert tokens to encrypted format"
+          }
+        }
+      ]
+    },
+    {
+      "name": "OAuth Testing",
+      "item": [
+        {
+          "name": "1. REAL OAuth Test (Use This!)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{real_auth_code}}\",\n  \"location_id\": \"{{real_location_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/test/oauth/real",
+              "host": ["{{base_url}}"],
+              "path": ["api", "test", "oauth", "real"]
+            },
+            "description": "Test real OAuth code from HighLevel - USE THIS WITH ACTUAL CODE!"
+          }
+        },
+        {
+          "name": "2. Simulate OAuth Flow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"test_auth_code_123\",\n  \"location_id\": \"test_location_456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/test/oauth/simulate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "test", "oauth", "simulate"]
+            },
+            "description": "Create simulated OAuth tokens"
+          }
+        },
+        {
+          "name": "2. OAuth Debug Callback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/oauth/debug-callback?code=test_code&location_id=test_location",
+              "host": ["{{base_url}}"],
+              "path": ["oauth", "debug-callback"],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "test_code"
+                },
+                {
+                  "key": "location_id",
+                  "value": "test_location"
+                }
+              ]
+            },
+            "description": "Test OAuth callback debugging"
+          }
+        },
+        {
+          "name": "3. Real OAuth Callback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/oauth/callback?code={{auth_code}}&location_id={{location_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["oauth", "callback"],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "{{auth_code}}"
+                },
+                {
+                  "key": "location_id",
+                  "value": "{{location_id}}"
+                }
+              ]
+            },
+            "description": "Real OAuth callback endpoint"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Database Testing",
+      "item": [
+        {
+          "name": "1. Check Database Records",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/test/database",
+              "host": ["{{base_url}}"],
+              "path": ["test", "database"]
+            },
+            "description": "Check database records"
+          }
+        },
+        {
+          "name": "2. Test OAuth Config",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/test/oauth-config",
+              "host": ["{{base_url}}"],
+              "path": ["test", "oauth-config"]
+            },
+            "description": "Check OAuth configuration"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://delyva.mysentree.io",
+      "type": "string"
+    },
+    {
+      "key": "location_id",
+      "value": "test_location_456",
+      "type": "string"
+    },
+    {
+      "key": "auth_code",
+      "value": "your_real_auth_code_here",
+      "type": "string"
+    },
+    {
+      "key": "real_auth_code",
+      "value": "PASTE_REAL_CODE_FROM_HIGHLEVEL_HERE",
+      "type": "string"
+    },
+    {
+      "key": "real_location_id",
+      "value": "PASTE_REAL_LOCATION_ID_HERE",
+      "type": "string"
+    }
+  ]
+}
