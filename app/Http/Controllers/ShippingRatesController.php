@@ -115,11 +115,10 @@ class ShippingRatesController extends Controller
         }
 
         // Format data untuk Delyva API mengikut spesifikasi
-        // Jika customer ID tidak valid, cuba tanpa customer ID atau guna default
+        // Hanya include customerId jika ada dan valid
         $customerId = $integration->delyva_customer_id ? (int)$integration->delyva_customer_id : null;
 
         $quotePayload = [
-            'customerId' => $customerId ?? 1, // default ke 1 jika tiada
             'origin' => [
                 'address1' => $origin['address1'] ?? $origin['address'] ?? '',
                 'city' => $origin['city'] ?? '',
@@ -140,6 +139,11 @@ class ShippingRatesController extends Controller
             ],
             'itemType' => 'PARCEL'
         ];
+
+        // Hanya tambah customerId jika ada dan valid
+        if ($customerId) {
+            $quotePayload['customerId'] = $customerId;
+        }
 
         $headers = [
             'X-Delyvax-Access-Token' => $integration->delyva_api_key,

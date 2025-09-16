@@ -648,4 +648,72 @@ Route::prefix('test')->group(function () {
             ], 500);
         }
     })->name('test.oauth-simulate');
+
+    // Test shipping rates directly
+    Route::get('shipping-rates/{locationId}', function($locationId) {
+        try {
+            $integration = \App\Models\ShippingIntegration::where('location_id', $locationId)->first();
+
+            if (!$integration) {
+                return response()->json(['error' => 'Integration not found'], 404);
+            }
+
+            if (!$integration->delyva_api_key) {
+                return response()->json(['error' => 'No Delyva API key'], 400);
+            }
+
+            // Test Delyva API call
+            $payload = [
+                'customerId' => $integration->delyva_customer_id ? (int)$integration->delyva_customer_id : 1,
+                'origin' => [
+                    'address1' => 'Kuala Lumpur',
+                    'city' => 'Kuala Lumpur',
+                    'state' => 'Selangor',
+                    'postcode' => '50000',
+                    'country' => 'MY',
+                ],
+                'destination' => [
+                    'address1' => 'Subang Jaya',
+                    'city' => 'Subang Jaya',
+                    'state' => 'Selangor',
+                    'postcode' => '47400',
+                    'country' => 'MY',
+                ],
+                'weight' => ['unit' => 'kg', 'value' => 1.0],
+                'itemType' => 'PARCEL'
+            ];
+
+            $headers = [
+                'X-Delyvax-Access-Token' => $integration->delyva_api_key,
+                'Content-Type' => 'application/json',
+            ];
+
+            $response = \Illuminate\Support\Facades\Http::withHeaders($headers)
+                ->post('https://api.delyva.app/v1.0/service/instantQuote', $payload);
+
+            return response()->json([
+                'integration' => [
+                    'location_id' => $integration->location_id,
+                    'has_api_key' => !empty($integration->delyva_api_key),
+                    'api_key_preview' => substr($integration->delyva_api_key, 0, 10) . '...',
+                    'customer_id' => $integration->delyva_customer_id,
+                    'shipping_enabled' => $integration->shipping_enabled
+                ],
+                'delyva_api_call' => [
+                    'url' => 'https://api.delyva.app/v1.0/service/instantQuote',
+                    'payload' => $payload,
+                    'status' => $response->status(),
+                    'success' => $response->successful(),
+                    'response' => $response->json(),
+                    'raw_body' => $response->body()
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ], 500);
+        }
+    })->name('test.shipping-rates');
 });
