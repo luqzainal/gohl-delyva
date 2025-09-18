@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ShippingIntegration;
 use App\Models\LocationTokens;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -206,7 +205,6 @@ class HighLevelOAuthController extends Controller
     public function getIntegrationStatus($locationId)
     {
         $locationToken = getLocationToken($locationId);
-        $integration = ShippingIntegration::where('location_id', $locationId)->first();
 
         if (!$locationToken) {
             return response()->json(['integrated' => false]);
@@ -214,8 +212,8 @@ class HighLevelOAuthController extends Controller
 
         return response()->json([
             'integrated' => !empty($locationToken->access_token),
-            'has_delyva_credentials' => $integration ? !empty($integration->delyva_api_key) : false,
-            'carrier_registered' => $integration ? !empty($integration->shipping_carrier_id) : false,
+            'has_delyva_credentials' => !empty($locationToken->delyva_api_key),
+            'carrier_registered' => !empty($locationToken->shipping_carrier_id),
         ]);
     }
 
@@ -301,23 +299,13 @@ class HighLevelOAuthController extends Controller
 
         try {
             // 1. Unregister carrier dari HighLevel jika ada
-            $integration = ShippingIntegration::where('location_id', $locationId)->first();
-
-            if ($integration && $integration->shipping_carrier_id) {
-                $this->unregisterCarrierOnUninstall($integration, $locationId);
-            }
-
-            // 2. Delete integration record
-            if ($integration) {
-                $integration->delete();
-                Log::info('Integration deleted', [
-                    'location_id' => $locationId,
-                    'integration_id' => $integration->id
-                ]);
-            }
-
-            // 3. Delete location tokens
             $locationToken = LocationTokens::where('location_id', $locationId)->first();
+
+            if ($locationToken && $locationToken->shipping_carrier_id) {
+                $this->unregisterCarrierOnUninstall($locationToken, $locationId);
+            }
+
+            // 2. Delete location tokens
             if ($locationToken) {
                 $locationToken->delete();
                 Log::info('Location tokens deleted', [
@@ -361,11 +349,9 @@ class HighLevelOAuthController extends Controller
     /**
      * Unregister carrier pada masa uninstall
      */
-    private function unregisterCarrierOnUninstall($integration, $locationId)
+    private function unregisterCarrierOnUninstall($locationToken, $locationId)
     {
         try {
-            $locationToken = getLocationToken($locationId);
-
             if (!$locationToken || !$locationToken->access_token) {
                 Log::warning('No access token for carrier unregistration', [
                     'location_id' => $locationId
@@ -380,17 +366,17 @@ class HighLevelOAuthController extends Controller
             ];
 
             $response = Http::withHeaders($headers)
-                ->delete('https://services.leadconnectorhq.com/store/shipping-carrier/' . $integration->shipping_carrier_id);
+                ->delete('https://services.leadconnectorhq.com/store/shipping-carrier/' . $locationToken->shipping_carrier_id);
 
             if ($response->successful()) {
                 Log::info('Carrier unregistered successfully during uninstall', [
                     'location_id' => $locationId,
-                    'carrier_id' => $integration->shipping_carrier_id
+                    'carrier_id' => $locationToken->shipping_carrier_id
                 ]);
             } else {
                 Log::warning('Failed to unregister carrier during uninstall', [
                     'location_id' => $locationId,
-                    'carrier_id' => $integration->shipping_carrier_id,
+                    'carrier_id' => $locationToken->shipping_carrier_id,
                     'status' => $response->status(),
                     'response' => $response->body()
                 ]);

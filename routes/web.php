@@ -504,16 +504,17 @@ Route::prefix('test')->group(function () {
     
     // Database check endpoint
     Route::get('database', function() {
-        $integrations = \App\Models\ShippingIntegration::all();
+        $locationTokens = \App\Models\LocationTokens::all();
         return response()->json([
-            'total_records' => $integrations->count(),
-            'records' => $integrations->map(function($integration) {
+            'total_records' => $locationTokens->count(),
+            'records' => $locationTokens->map(function($token) {
                 return [
-                    'id' => $integration->id,
-                    'location_id' => $integration->location_id,
-                    'api_key_preview' => substr($integration->delyva_api_key, 0, 15) . '...',
-                    'has_customer_id' => !empty($integration->delyva_customer_id),
-                    'created_at' => $integration->created_at->format('Y-m-d H:i:s')
+                    'id' => $token->id,
+                    'location_id' => $token->location_id,
+                    'api_key_preview' => $token->delyva_api_key ? substr($token->delyva_api_key, 0, 15) . '...' : 'Not set',
+                    'has_customer_id' => !empty($token->delyva_customer_id),
+                    'shipping_enabled' => $token->shipping_enabled ?? true,
+                    'created_at' => $token->created_at->format('Y-m-d H:i:s')
                 ];
             })
         ]);
@@ -656,19 +657,19 @@ Route::prefix('test')->group(function () {
     // Test shipping rates directly
     Route::get('shipping-rates/{locationId}', function($locationId) {
         try {
-            $integration = \App\Models\ShippingIntegration::where('location_id', $locationId)->first();
+            $locationToken = \App\Models\LocationTokens::where('location_id', $locationId)->first();
 
-            if (!$integration) {
-                return response()->json(['error' => 'Integration not found'], 404);
+            if (!$locationToken) {
+                return response()->json(['error' => 'Location not found'], 404);
             }
 
-            if (!$integration->delyva_api_key) {
+            if (!$locationToken->delyva_api_key) {
                 return response()->json(['error' => 'No Delyva API key'], 400);
             }
 
             // Test Delyva API call
             $payload = [
-                'customerId' => $integration->delyva_customer_id ? (int)$integration->delyva_customer_id : 1,
+                'customerId' => $locationToken->delyva_customer_id ? (int)$locationToken->delyva_customer_id : 1,
                 'origin' => [
                     'address1' => 'Kuala Lumpur',
                     'city' => 'Kuala Lumpur',
@@ -688,7 +689,7 @@ Route::prefix('test')->group(function () {
             ];
 
             $headers = [
-                'X-Delyvax-Access-Token' => $integration->delyva_api_key,
+                'X-Delyvax-Access-Token' => $locationToken->delyva_api_key,
                 'Content-Type' => 'application/json',
             ];
 
@@ -696,12 +697,12 @@ Route::prefix('test')->group(function () {
                 ->post('https://api.delyva.app/v1.0/service/instantQuote', $payload);
 
             return response()->json([
-                'integration' => [
-                    'location_id' => $integration->location_id,
-                    'has_api_key' => !empty($integration->delyva_api_key),
-                    'api_key_preview' => substr($integration->delyva_api_key, 0, 10) . '...',
-                    'customer_id' => $integration->delyva_customer_id,
-                    'shipping_enabled' => $integration->shipping_enabled
+                'location_token' => [
+                    'location_id' => $locationToken->location_id,
+                    'has_api_key' => !empty($locationToken->delyva_api_key),
+                    'api_key_preview' => substr($locationToken->delyva_api_key, 0, 10) . '...',
+                    'customer_id' => $locationToken->delyva_customer_id,
+                    'shipping_enabled' => $locationToken->shipping_enabled ?? true
                 ],
                 'delyva_api_call' => [
                     'url' => 'https://api.delyva.app/v1.0/service/instantQuote',

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ShippingIntegration;
+use App\Models\LocationTokens;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -54,28 +54,33 @@ class DelyvaCredentialsController extends Controller
             $customerId = $validationResult['user_data']['id'];
         }
 
-        // Simpan kredential ke database
-        $integration = ShippingIntegration::updateOrCreate(
-            ['location_id' => $locationId],
-            [
-                'delyva_api_key' => $apiKey,
-                'delyva_customer_id' => $customerId,
-                'delyva_api_secret' => $apiSecret,
-                'delyva_company_code' => $companyCode,
-                'delyva_company_id' => $companyId,
-                'delyva_user_id' => $userId,
-            ]
-        );
+        // Simpan kredential ke location_tokens table
+        $locationToken = LocationTokens::where('location_id', $locationId)->first();
+
+        if (!$locationToken) {
+            return response()->json([
+                'error' => 'Location not found. Please ensure OAuth integration is completed first.'
+            ], 404);
+        }
+
+        $locationToken->update([
+            'delyva_api_key' => $apiKey,
+            'delyva_customer_id' => $customerId,
+            'delyva_api_secret' => $apiSecret,
+            'delyva_company_code' => $companyCode,
+            'delyva_company_id' => $companyId,
+            'delyva_user_id' => $userId,
+        ]);
 
         Log::info('Delyva credentials saved', [
             'location_id' => $locationId,
-            'integration_id' => $integration->id
+            'location_token_id' => $locationToken->id
         ]);
 
         return response()->json([
             'status' => 'success',
             'message' => 'Delyva credentials saved successfully',
-            'integration_id' => $integration->id
+            'location_token_id' => $locationToken->id
         ]);
     }
 
@@ -99,22 +104,22 @@ class DelyvaCredentialsController extends Controller
         $locationId = $request->input('locationId');
         $enabled = $request->input('enabled');
 
-        $integration = ShippingIntegration::where('location_id', $locationId)->first();
+        $locationToken = LocationTokens::where('location_id', $locationId)->first();
 
-        if (!$integration) {
+        if (!$locationToken) {
             return response()->json([
-                'error' => 'Integration not found'
+                'error' => 'Location not found'
             ], 404);
         }
 
-        $integration->update([
+        $locationToken->update([
             'shipping_enabled' => $enabled
         ]);
 
         Log::info('Shipping status toggled', [
             'location_id' => $locationId,
             'enabled' => $enabled,
-            'integration_id' => $integration->id
+            'location_token_id' => $locationToken->id
         ]);
 
         return response()->json([
@@ -129,23 +134,24 @@ class DelyvaCredentialsController extends Controller
      */
     public function getCredentials($locationId)
     {
-        $integration = ShippingIntegration::where('location_id', $locationId)->first();
+        $locationToken = LocationTokens::where('location_id', $locationId)->first();
 
-        if (!$integration) {
+        if (!$locationToken) {
             return response()->json([
-                'error' => 'Integration not found'
+                'error' => 'Location not found'
             ], 404);
         }
 
         return response()->json([
-            'has_credentials' => !empty($integration->delyva_api_key),
-            'delyva_customer_id' => $integration->delyva_customer_id,
-            'delyva_company_code' => $integration->delyva_company_code,
-            'delyva_company_id' => $integration->delyva_company_id,
-            'delyva_user_id' => $integration->delyva_user_id,
-            'api_key_preview' => $integration->delyva_api_key ?
-                substr($integration->delyva_api_key, 0, 10) . '...' : null,
-            'has_api_secret' => !empty($integration->delyva_api_secret),
+            'has_credentials' => !empty($locationToken->delyva_api_key),
+            'delyva_customer_id' => $locationToken->delyva_customer_id,
+            'delyva_company_code' => $locationToken->delyva_company_code,
+            'delyva_company_id' => $locationToken->delyva_company_id,
+            'delyva_user_id' => $locationToken->delyva_user_id,
+            'api_key_preview' => $locationToken->delyva_api_key ?
+                substr($locationToken->delyva_api_key, 0, 10) . '...' : null,
+            'has_api_secret' => !empty($locationToken->delyva_api_secret),
+            'shipping_enabled' => $locationToken->shipping_enabled ?? true,
             // Jangan expose API key dan secret lengkap dalam response untuk security
         ]);
     }
@@ -193,23 +199,26 @@ class DelyvaCredentialsController extends Controller
      */
     public function deleteCredentials($locationId)
     {
-        $integration = ShippingIntegration::where('location_id', $locationId)->first();
+        $locationToken = LocationTokens::where('location_id', $locationId)->first();
 
-        if (!$integration) {
+        if (!$locationToken) {
             return response()->json([
-                'error' => 'Integration not found'
+                'error' => 'Location not found'
             ], 404);
         }
 
-        $integration->update([
+        $locationToken->update([
             'delyva_api_key' => null,
             'delyva_customer_id' => null,
             'delyva_api_secret' => null,
+            'delyva_company_code' => null,
+            'delyva_company_id' => null,
+            'delyva_user_id' => null,
         ]);
 
         Log::info('Delyva credentials deleted', [
             'location_id' => $locationId,
-            'integration_id' => $integration->id
+            'location_token_id' => $locationToken->id
         ]);
 
         return response()->json([
@@ -347,16 +356,16 @@ class DelyvaCredentialsController extends Controller
      */
     public function getAvailableCouriers($locationId)
     {
-        $integration = ShippingIntegration::where('location_id', $locationId)->first();
+        $locationToken = LocationTokens::where('location_id', $locationId)->first();
 
-        if (!$integration || !$integration->delyva_api_key) {
+        if (!$locationToken || !$locationToken->delyva_api_key) {
             return response()->json([
                 'error' => 'Delyva credentials not found'
             ], 404);
         }
 
         $headers = [
-            'Authorization' => 'Bearer ' . $integration->delyva_api_key,
+            'Authorization' => 'Bearer ' . $locationToken->delyva_api_key,
             'Content-Type' => 'application/json',
         ];
 
