@@ -149,7 +149,10 @@
 
             // Fungsi untuk validasi dan sync location ID dengan HighLevel context
             const validateAndSyncLocationId = async () => {
+                console.log('🔍 validateAndSyncLocationId called with:', locationId);
+
                 if (!locationId || locationId.startsWith('dev_') || locationId.startsWith('fallback_')) {
+                    console.log('⏭️ Skipping validation (dev/fallback mode)');
                     return locationId; // Skip untuk development mode
                 }
 
@@ -187,6 +190,7 @@
 
                     // 3. Last resort: Check sama ada ada location ID yang baru sahaja di-setup untuk session ini
                     // Ini untuk handle case dimana user baru complete OAuth
+                    console.log('🔄 Step 3: Checking session sync...');
                     const syncResponse = await fetch('/api/sync-location-context', {
                         method: 'POST',
                         headers: {
@@ -200,12 +204,17 @@
                         })
                     });
 
+                    console.log('📡 Sync response status:', syncResponse.status);
+
                     if (syncResponse.ok) {
                         const syncData = await syncResponse.json();
+                        console.log('📊 Sync data received:', syncData);
                         if (syncData.corrected_location_id && syncData.corrected_location_id !== locationId) {
-                            console.log('Found corrected location ID for this session:', syncData.corrected_location_id);
+                            console.log('✅ Found corrected location ID for this session:', syncData.corrected_location_id);
                             return syncData.corrected_location_id;
                         }
+                    } else {
+                        console.log('❌ Sync request failed:', await syncResponse.text());
                     }
 
                 } catch (err) {
@@ -219,17 +228,26 @@
             const loadExistingCredentials = async () => {
                 if (!locationId) return;
 
+                console.log('🔍 Starting loadExistingCredentials with locationId:', locationId);
+
                 // Generate session ID untuk track user session
                 if (!sessionStorage.getItem('plugin_session_id')) {
                     sessionStorage.setItem('plugin_session_id', 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9));
                 }
 
+                console.log('📱 Session ID:', sessionStorage.getItem('plugin_session_id'));
+
                 // Validasi dan sync location ID dengan HighLevel context
+                console.log('🔄 Starting location ID validation...');
                 const validLocationId = await validateAndSyncLocationId();
+                console.log('✅ Validation complete. Original:', locationId, 'Valid:', validLocationId);
+
                 if (validLocationId !== locationId) {
-                    console.log('Location ID updated from', locationId, 'to', validLocationId);
+                    console.log('🔄 Location ID updated from', locationId, 'to', validLocationId);
                     locationId = validLocationId;
                     updateLocationDisplay();
+                } else {
+                    console.log('✅ Location ID confirmed as correct:', locationId);
                 }
 
                 try {

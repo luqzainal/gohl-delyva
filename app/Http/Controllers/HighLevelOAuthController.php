@@ -266,4 +266,141 @@ class HighLevelOAuthController extends Controller
 
         return null;
     }
+
+    /**
+     * Handle app uninstall from HighLevel
+     */
+    public function handleUninstall(Request $request)
+    {
+        // Get location ID dari request - HighLevel biasanya send dalam parameter atau body
+        $locationId = $request->get('location_id')
+                   ?? $request->get('locationId')
+                   ?? $request->get('altId')
+                   ?? $request->input('location_id')
+                   ?? $request->input('locationId')
+                   ?? $request->input('altId');
+
+        Log::info('App uninstall request received', [
+            'location_id' => $locationId,
+            'all_params' => $request->all(),
+            'headers' => $request->headers->all(),
+            'method' => $request->method(),
+            'url' => $request->fullUrl()
+        ]);
+
+        if (!$locationId) {
+            Log::warning('Uninstall request without location ID', [
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Location ID not provided'
+            ], 400);
+        }
+
+        try {
+            // 1. Unregister carrier dari HighLevel jika ada
+            $integration = ShippingIntegration::where('location_id', $locationId)->first();
+
+            if ($integration && $integration->shipping_carrier_id) {
+                $this->unregisterCarrierOnUninstall($integration, $locationId);
+            }
+
+            // 2. Delete integration record
+            if ($integration) {
+                $integration->delete();
+                Log::info('Integration deleted', [
+                    'location_id' => $locationId,
+                    'integration_id' => $integration->id
+                ]);
+            }
+
+            // 3. Delete location tokens
+            $locationToken = LocationTokens::where('location_id', $locationId)->first();
+            if ($locationToken) {
+                $locationToken->delete();
+                Log::info('Location tokens deleted', [
+                    'location_id' => $locationId,
+                    'token_id' => $locationToken->id
+                ]);
+            }
+
+            // 4. Clear session cache
+            $sessionKeys = cache()->get('location_sessions_' . $locationId, []);
+            foreach ($sessionKeys as $sessionKey) {
+                cache()->forget($sessionKey);
+            }
+            cache()->forget('location_sessions_' . $locationId);
+
+            Log::info('App uninstall completed successfully', [
+                'location_id' => $locationId
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'App uninstalled successfully',
+                'location_id' => $locationId
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error during app uninstall', [
+                'location_id' => $locationId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error during uninstall: ' . $e->getMessage(),
+                'location_id' => $locationId
+            ], 500);
+        }
+    }
+
+    /**
+     * Unregister carrier pada masa uninstall
+     */
+    private function unregisterCarrierOnUninstall($integration, $locationId)
+    {
+        try {
+            $locationToken = getLocationToken($locationId);
+
+            if (!$locationToken || !$locationToken->access_token) {
+                Log::warning('No access token for carrier unregistration', [
+                    'location_id' => $locationId
+                ]);
+                return;
+            }
+
+            $headers = [
+                'Authorization' => 'Bearer ' . $locationToken->access_token,
+                'Content-Type' => 'application/json',
+                'Version' => '2021-07-28',
+            ];
+
+            $response = Http::withHeaders($headers)
+                ->delete('https://services.leadconnectorhq.com/store/shipping-carrier/' . $integration->shipping_carrier_id);
+
+            if ($response->successful()) {
+                Log::info('Carrier unregistered successfully during uninstall', [
+                    'location_id' => $locationId,
+                    'carrier_id' => $integration->shipping_carrier_id
+                ]);
+            } else {
+                Log::warning('Failed to unregister carrier during uninstall', [
+                    'location_id' => $locationId,
+                    'carrier_id' => $integration->shipping_carrier_id,
+                    'status' => $response->status(),
+                    'response' => $response->body()
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Exception during carrier unregistration on uninstall', [
+                'location_id' => $locationId,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
 }

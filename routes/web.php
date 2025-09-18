@@ -157,6 +157,10 @@ Route::prefix('oauth')->group(function () {
     Route::get('auth', [HighLevelOAuthController::class, 'redirectToHighLevel'])->name('highlevel.auth');
 });
 
+// App Uninstall Routes
+Route::post('/uninstall', [HighLevelOAuthController::class, 'handleUninstall'])->name('app.uninstall');
+Route::get('/uninstall', [HighLevelOAuthController::class, 'handleUninstall'])->name('app.uninstall.get');
+
 // Delyva Credentials Routes
 Route::prefix('delyva')->group(function () {
     Route::post('credentials', [DelyvaCredentialsController::class, 'saveCredentials'])->name('delyva.credentials.save');
