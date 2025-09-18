@@ -162,12 +162,195 @@ class HighLevelContextController extends Controller
     public function testContext(Request $request)
     {
         $locationId = $request->input('locationId', 'test_location_manual');
-        
+
         return response()->json([
             'locationId' => $locationId,
             'userId' => 'test_user_123',
             'companyId' => 'test_company_456',
             'message' => 'Test context - manual input'
         ]);
+    }
+
+    /**
+     * Cari location ID yang sebenar dengan OAuth token
+     */
+    public function findIntegratedLocation(Request $request)
+    {
+        $attemptedLocationId = $request->input('attempted_location_id');
+
+        Log::info('Finding integrated location', [
+            'attempted_location_id' => $attemptedLocationId,
+            'timestamp' => $request->input('timestamp')
+        ]);
+
+        try {
+            // Cari location tokens yang ada dan terbaru
+            $locationToken = LocationTokens::whereNotNull('access_token')
+                ->orderBy('updated_at', 'desc')
+                ->first();
+
+            if ($locationToken) {
+                // Jika location token yang ditemui berbeza dengan yang dicuba
+                if ($locationToken->location_id !== $attemptedLocationId) {
+                    Log::info('Found different integrated location', [
+                        'attempted' => $attemptedLocationId,
+                        'found' => $locationToken->location_id
+                    ]);
+
+                    return response()->json([
+                        'location_id' => $locationToken->location_id,
+                        'message' => 'Found integrated location',
+                        'changed' => true
+                    ]);
+                }
+
+                return response()->json([
+                    'location_id' => $locationToken->location_id,
+                    'message' => 'Location ID confirmed',
+                    'changed' => false
+                ]);
+            }
+
+            // Tiada location token ditemui
+            Log::warning('No integrated location found', [
+                'attempted_location_id' => $attemptedLocationId
+            ]);
+
+            return response()->json([
+                'location_id' => null,
+                'message' => 'No integrated location found',
+                'changed' => false
+            ], 404);
+
+        } catch (\Exception $e) {
+            Log::error('Error finding integrated location', [
+                'error' => $e->getMessage(),
+                'attempted_location_id' => $attemptedLocationId
+            ]);
+
+            return response()->json([
+                'location_id' => null,
+                'message' => 'Error finding integrated location',
+                'error' => $e->getMessage(),
+                'changed' => false
+            ], 500);
+        }
+    }
+
+    /**
+     * Sync location context untuk session-based user mapping
+     * Ini untuk handle multiple users/locations dengan session tracking
+     */
+    public function syncLocationContext(Request $request)
+    {
+        $originalLocationId = $request->input('original_location_id');
+        $sessionId = $request->input('browser_session_id');
+        $timestamp = $request->input('timestamp');
+
+        Log::info('Syncing location context', [
+            'original_location_id' => $originalLocationId,
+            'session_id' => $sessionId,
+            'timestamp' => $timestamp,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent()
+        ]);
+
+        try {
+            // 1. Check jika original location ID sudah integrated
+            $originalToken = LocationTokens::where('location_id', $originalLocationId)
+                ->whereNotNull('access_token')
+                ->first();
+
+            if ($originalToken) {
+                Log::info('Original location ID is already integrated', [
+                    'location_id' => $originalLocationId
+                ]);
+
+                return response()->json([
+                    'corrected_location_id' => $originalLocationId,
+                    'message' => 'Original location ID is correct',
+                    'changed' => false,
+                    'source' => 'original_verified'
+                ]);
+            }
+
+            // 2. Check session storage untuk mapping yang ada
+            $sessionKey = 'session_location_' . $sessionId;
+            $cachedLocationId = cache()->get($sessionKey);
+
+            if ($cachedLocationId) {
+                // Verify cache location masih valid
+                $cachedToken = LocationTokens::where('location_id', $cachedLocationId)
+                    ->whereNotNull('access_token')
+                    ->first();
+
+                if ($cachedToken) {
+                    Log::info('Found valid cached location for session', [
+                        'session_id' => $sessionId,
+                        'cached_location_id' => $cachedLocationId
+                    ]);
+
+                    return response()->json([
+                        'corrected_location_id' => $cachedLocationId,
+                        'message' => 'Found cached location for session',
+                        'changed' => $cachedLocationId !== $originalLocationId,
+                        'source' => 'session_cache'
+                    ]);
+                }
+            }
+
+            // 3. Cari location yang baru sahaja created (dalam 10 minit terakhir)
+            // untuk handle fresh OAuth completion
+            $recentToken = LocationTokens::whereNotNull('access_token')
+                ->where('updated_at', '>=', now()->subMinutes(10))
+                ->orderBy('updated_at', 'desc')
+                ->first();
+
+            if ($recentToken) {
+                // Cache mapping untuk session ini
+                cache()->put($sessionKey, $recentToken->location_id, now()->addHours(24));
+
+                Log::info('Found recent OAuth completion, mapping to session', [
+                    'session_id' => $sessionId,
+                    'recent_location_id' => $recentToken->location_id,
+                    'original_attempted' => $originalLocationId
+                ]);
+
+                return response()->json([
+                    'corrected_location_id' => $recentToken->location_id,
+                    'message' => 'Found recent OAuth completion',
+                    'changed' => $recentToken->location_id !== $originalLocationId,
+                    'source' => 'recent_oauth'
+                ]);
+            }
+
+            // 4. No correction needed, return original
+            Log::info('No location correction needed', [
+                'original_location_id' => $originalLocationId,
+                'session_id' => $sessionId
+            ]);
+
+            return response()->json([
+                'corrected_location_id' => $originalLocationId,
+                'message' => 'No correction needed',
+                'changed' => false,
+                'source' => 'no_change'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error syncing location context', [
+                'error' => $e->getMessage(),
+                'original_location_id' => $originalLocationId,
+                'session_id' => $sessionId
+            ]);
+
+            return response()->json([
+                'corrected_location_id' => $originalLocationId,
+                'message' => 'Error syncing context, using original',
+                'changed' => false,
+                'source' => 'error_fallback',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

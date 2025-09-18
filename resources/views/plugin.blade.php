@@ -147,8 +147,91 @@
                 }
             };
 
+            // Fungsi untuk validasi dan sync location ID dengan HighLevel context
+            const validateAndSyncLocationId = async () => {
+                if (!locationId || locationId.startsWith('dev_') || locationId.startsWith('fallback_')) {
+                    return locationId; // Skip untuk development mode
+                }
+
+                try {
+                    // 1. Prioritas tertinggi: Check HighLevel context untuk current session
+                    const contextResponse = await fetch('/api/decrypt-context', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        },
+                        body: JSON.stringify({
+                            encryptedData: window.parent?.postMessage ? 'context_request' : null
+                        })
+                    });
+
+                    if (contextResponse.ok) {
+                        const contextData = await contextResponse.json();
+                        if (contextData.locationId && contextData.locationId !== 'no_oauth_' && !contextData.locationId.startsWith('no_oauth_')) {
+                            // Ada valid HighLevel context, guna location ID dari context
+                            console.log('Using location ID from HighLevel context:', contextData.locationId);
+                            return contextData.locationId;
+                        }
+                    }
+
+                    // 2. Check integration status untuk location ID dari URL/parameter
+                    const statusResponse = await fetch(\`/oauth/highlevel/status/\${locationId}\`);
+                    if (statusResponse.ok) {
+                        const statusData = await statusResponse.json();
+                        if (statusData.integrated) {
+                            console.log('Location ID from URL is integrated:', locationId);
+                            return locationId; // Location ID dari URL sudah betul dan integrated
+                        }
+                    }
+
+                    // 3. Last resort: Check sama ada ada location ID yang baru sahaja di-setup untuk session ini
+                    // Ini untuk handle case dimana user baru complete OAuth
+                    const syncResponse = await fetch('/api/sync-location-context', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        },
+                        body: JSON.stringify({
+                            original_location_id: locationId,
+                            browser_session_id: sessionStorage.getItem('plugin_session_id') || Date.now(),
+                            timestamp: Date.now()
+                        })
+                    });
+
+                    if (syncResponse.ok) {
+                        const syncData = await syncResponse.json();
+                        if (syncData.corrected_location_id && syncData.corrected_location_id !== locationId) {
+                            console.log('Found corrected location ID for this session:', syncData.corrected_location_id);
+                            return syncData.corrected_location_id;
+                        }
+                    }
+
+                } catch (err) {
+                    console.error('Error validating location ID:', err);
+                }
+
+                console.log('Using original location ID as fallback:', locationId);
+                return locationId; // Fallback ke original location ID
+            };
+
             const loadExistingCredentials = async () => {
                 if (!locationId) return;
+
+                // Generate session ID untuk track user session
+                if (!sessionStorage.getItem('plugin_session_id')) {
+                    sessionStorage.setItem('plugin_session_id', 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9));
+                }
+
+                // Validasi dan sync location ID dengan HighLevel context
+                const validLocationId = await validateAndSyncLocationId();
+                if (validLocationId !== locationId) {
+                    console.log('Location ID updated from', locationId, 'to', validLocationId);
+                    locationId = validLocationId;
+                    updateLocationDisplay();
+                }
+
                 try {
                     const response = await fetch(\`/delyva/credentials/\${locationId}\`);
                     if (response.ok) {

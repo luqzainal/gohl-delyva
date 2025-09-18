@@ -121,9 +121,16 @@ class HighLevelOAuthController extends Controller
 
             try {
                 $this->saveTokens($response);
+
+                // Set session mapping untuk location ini untuk 24 jam
+                $sessionId = request()->session()->getId();
+                cache()->put('session_location_' . $sessionId, $locationId, now()->addHours(24));
+
                 Log::info('OAuth process completed successfully', [
-                    'location_id' => $locationId
+                    'location_id' => $locationId,
+                    'session_id' => $sessionId
                 ]);
+
                 return redirect()->route('install.success')->with('locationId', $locationId);
             } catch (\Exception $e) {
                 Log::error('Failed to save OAuth tokens', [

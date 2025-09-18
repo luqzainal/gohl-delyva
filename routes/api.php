@@ -28,6 +28,8 @@ Route::delete('/carrier/unregister/{locationId}', [\App\Http\Controllers\Carrier
 // HighLevel Context endpoints
 Route::post('/decrypt-context', [HighLevelContextController::class, 'decryptContext']);
 Route::post('/test-context', [HighLevelContextController::class, 'testContext']);
+Route::post('/find-integrated-location', [HighLevelContextController::class, 'findIntegratedLocation']);
+Route::post('/sync-location-context', [HighLevelContextController::class, 'syncLocationContext']);
 
 // Webhook endpoints - no CSRF protection needed
 Route::post('/webhooks/highlevel', [OrderWebhookController::class, 'handleOrderWebhook']);
