@@ -27,59 +27,74 @@ const SettingsPage: React.FC = () => {
   const [isTestingCredentials, setIsTestingCredentials] = useState<boolean>(false);
 
   useEffect(() => {
-    // Dapatkan context HighLevel (locationId) apabila komponen mount
-    const requestUserData = () => {
-      window.parent.postMessage({ message: 'REQUEST_USER_DATA' }, '*');
+    // Always try to get the correct integrated location first
+    const getIntegratedLocation = () => {
+      fetch('/api/find-integrated-location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          attempted_location_id: 'initial_load',
+          timestamp: new Date().toISOString()
+        })
+      })
+      .then(res => res.json())
+      .then(locationData => {
+        if (locationData.location_id) {
+          setLocationId(locationData.location_id);
+          console.log('Found integrated location:', locationData.location_id);
+          return; // Stop here if we found integrated location
+        }
+
+        // If no integrated location, try HighLevel context
+        tryHighLevelContext();
+      })
+      .catch(err => {
+        console.error('Error finding integrated location:', err);
+        // Fallback to HighLevel context
+        tryHighLevelContext();
+      });
     };
 
-    const handler = (event: MessageEvent) => {
-      if (event.data?.message === 'REQUEST_USER_DATA_RESPONSE') {
-        const encryptedPayload = event.data.payload;
-        
-        // Hantar encryptedPayload ke server untuk decrypt
-        fetch('/api/decrypt-context', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ encryptedData: encryptedPayload })
-        })
-        .then(res => res.json())
-        .then((data: HighLevelContext) => {
-          setLocationId(data.locationId);
-          console.log('HighLevel Context:', data);
-        })
-        .catch(err => {
-          console.error('Error decrypting context:', err);
-          // Fallback: try to find integrated location from server
-          fetch('/api/find-integrated-location', {
+    const tryHighLevelContext = () => {
+      const requestUserData = () => {
+        window.parent.postMessage({ message: 'REQUEST_USER_DATA' }, '*');
+      };
+
+      const handler = (event: MessageEvent) => {
+        if (event.data?.message === 'REQUEST_USER_DATA_RESPONSE') {
+          const encryptedPayload = event.data.payload;
+
+          // Hantar encryptedPayload ke server untuk decrypt
+          fetch('/api/decrypt-context', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              attempted_location_id: 'context_decrypt_failed',
-              timestamp: new Date().toISOString()
-            })
+            body: JSON.stringify({ encryptedData: encryptedPayload })
           })
           .then(res => res.json())
-          .then(locationData => {
-            if (locationData.location_id) {
-              setLocationId(locationData.location_id);
-              console.log('Found integrated location:', locationData.location_id);
-            } else {
-              setLocationId('test_location_dev');
-            }
+          .then((data: HighLevelContext) => {
+            setLocationId(data.locationId);
+            console.log('HighLevel Context:', data);
           })
-          .catch(() => {
+          .catch(err => {
+            console.error('Error decrypting context:', err);
             setLocationId('test_location_dev');
           });
-        });
-      }
+        }
+      };
+
+      window.addEventListener('message', handler);
+
+      // Request data selepas component mount
+      setTimeout(requestUserData, 100);
+
+      // Clean up after 10 seconds
+      setTimeout(() => {
+        window.removeEventListener('message', handler);
+      }, 10000);
     };
 
-    window.addEventListener('message', handler);
-    
-    // Request data selepas component mount
-    setTimeout(requestUserData, 100);
-
-    return () => window.removeEventListener('message', handler);
+    // Start with integrated location check
+    getIntegratedLocation();
   }, []);
 
   useEffect(() => {

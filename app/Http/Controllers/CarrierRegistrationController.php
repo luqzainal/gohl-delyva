@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ShippingIntegration;
+use App\Models\LocationTokens;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -14,32 +14,31 @@ class CarrierRegistrationController extends Controller
      */
     public function registerCarrier($locationId)
     {
-        $integration = ShippingIntegration::where('location_id', $locationId)->first();
+        $locationToken = LocationTokens::where('location_id', $locationId)->first();
 
-        if (!$integration) {
+        if (!$locationToken) {
             return response()->json([
-                'error' => 'Integration not found'
+                'error' => 'Location not found'
             ], 404);
         }
 
-        $locationToken = getLocationToken($locationId);
-        if (!$locationToken || !$locationToken->access_token) {
+        if (!$locationToken->access_token) {
             return response()->json([
                 'error' => 'HighLevel access token not found'
             ], 400);
         }
 
-        if (!$integration->delyva_api_key) {
+        if (!$locationToken->delyva_api_key) {
             return response()->json([
                 'error' => 'Delyva credentials not found'
             ], 400);
         }
 
         // Jika carrier sudah didaftarkan, return existing
-        if ($integration->shipping_carrier_id) {
+        if ($locationToken->shipping_carrier_id) {
             return response()->json([
                 'message' => 'Carrier already registered',
-                'carrier_id' => $integration->shipping_carrier_id
+                'carrier_id' => $locationToken->shipping_carrier_id
             ]);
         }
 
@@ -62,7 +61,7 @@ class CarrierRegistrationController extends Controller
         if (!$response->successful()) {
             // Jika token expired, cuba refresh
             if ($response->status() === 401) {
-                $refreshResult = $this->refreshTokenAndRetry($integration, $locationId, $carrierData);
+                $refreshResult = $this->refreshTokenAndRetry($locationToken, $locationId, $carrierData);
                 if ($refreshResult) {
                     return $refreshResult;
                 }
@@ -90,14 +89,14 @@ class CarrierRegistrationController extends Controller
         }
 
         // Simpan carrier ID ke database
-        $integration->update([
+        $locationToken->update([
             'shipping_carrier_id' => $carrierId
         ]);
 
         Log::info('Carrier registered successfully', [
             'location_id' => $locationId,
             'carrier_id' => $carrierId,
-            'integration_id' => $integration->id
+            'location_token_id' => $locationToken->id
         ]);
 
         return response()->json([
@@ -112,7 +111,7 @@ class CarrierRegistrationController extends Controller
      */
     public function getIntegrationStatus($locationId)
     {
-        $integration = ShippingIntegration::where('location_id', $locationId)->first();
+        $locationToken = LocationTokens::where('location_id', $locationId)->first();
 
         $status = [
             'location_id' => $locationId,
@@ -127,27 +126,26 @@ class CarrierRegistrationController extends Controller
             'updated_at' => null,
         ];
 
-        if (!$integration) {
+        if (!$locationToken) {
             return response()->json([
                 'status' => $status,
-                'message' => 'No integration found for this location'
+                'message' => 'No location token found for this location'
             ]);
         }
 
         $status['integration_exists'] = true;
-        $status['has_delyva_credentials'] = !empty($integration->delyva_api_key);
-        $locationToken = getLocationToken($locationId);
-        $status['has_highlevel_token'] = $locationToken && !empty($locationToken->access_token);
-        $status['carrier_registered'] = !empty($integration->shipping_carrier_id);
-        $status['carrier_id'] = $integration->shipping_carrier_id;
-        $status['shipping_enabled'] = $integration->shipping_enabled ?? true;
-        $status['created_at'] = $integration->created_at;
-        $status['updated_at'] = $integration->updated_at;
+        $status['has_delyva_credentials'] = !empty($locationToken->delyva_api_key);
+        $status['has_highlevel_token'] = !empty($locationToken->access_token);
+        $status['carrier_registered'] = !empty($locationToken->shipping_carrier_id);
+        $status['carrier_id'] = $locationToken->shipping_carrier_id;
+        $status['shipping_enabled'] = $locationToken->shipping_enabled ?? true;
+        $status['created_at'] = $locationToken->created_at;
+        $status['updated_at'] = $locationToken->updated_at;
 
         // Test Delyva API jika ada credentials
         if ($status['has_delyva_credentials']) {
             $testPayload = [
-                'customerId' => (int)($integration->delyva_customer_id ?? 1),
+                'customerId' => (int)($locationToken->delyva_customer_id ?? 1),
                 'origin' => [
                     'address1' => 'Kuala Lumpur',
                     'city' => 'Kuala Lumpur',
@@ -170,7 +168,7 @@ class CarrierRegistrationController extends Controller
             ];
 
             $headers = [
-                'X-Delyvax-Access-Token' => $integration->delyva_api_key,
+                'X-Delyvax-Access-Token' => $locationToken->delyva_api_key,
                 'Content-Type' => 'application/json',
             ];
 
@@ -198,16 +196,15 @@ class CarrierRegistrationController extends Controller
      */
     public function getCarrierInfo($locationId)
     {
-        $integration = ShippingIntegration::where('location_id', $locationId)->first();
+        $locationToken = LocationTokens::where('location_id', $locationId)->first();
 
-        if (!$integration || !$integration->shipping_carrier_id) {
+        if (!$locationToken || !$locationToken->shipping_carrier_id) {
             return response()->json([
                 'error' => 'Carrier not registered'
             ], 404);
         }
 
-        $locationToken = getLocationToken($locationId);
-        if (!$locationToken || !$locationToken->access_token) {
+        if (!$locationToken->access_token) {
             return response()->json([
                 'error' => 'HighLevel access token not found'
             ], 400);
@@ -220,12 +217,12 @@ class CarrierRegistrationController extends Controller
         ];
 
         $response = Http::withHeaders($headers)
-            ->get('https://services.leadconnectorhq.com/store/shipping-carrier/' . $integration->shipping_carrier_id);
+            ->get('https://services.leadconnectorhq.com/store/shipping-carrier/' . $locationToken->shipping_carrier_id);
 
         if (!$response->successful()) {
             Log::error('Failed to get carrier info from HighLevel', [
                 'location_id' => $locationId,
-                'carrier_id' => $integration->shipping_carrier_id,
+                'carrier_id' => $locationToken->shipping_carrier_id,
                 'status' => $response->status()
             ]);
 
@@ -242,16 +239,15 @@ class CarrierRegistrationController extends Controller
      */
     public function updateCarrier(Request $request, $locationId)
     {
-        $integration = ShippingIntegration::where('location_id', $locationId)->first();
+        $locationToken = LocationTokens::where('location_id', $locationId)->first();
 
-        if (!$integration || !$integration->shipping_carrier_id) {
+        if (!$locationToken || !$locationToken->shipping_carrier_id) {
             return response()->json([
                 'error' => 'Carrier not registered'
             ], 404);
         }
 
-        $locationToken = getLocationToken($locationId);
-        if (!$locationToken || !$locationToken->access_token) {
+        if (!$locationToken->access_token) {
             return response()->json([
                 'error' => 'HighLevel access token not found'
             ], 400);
@@ -271,12 +267,12 @@ class CarrierRegistrationController extends Controller
         ];
 
         $response = Http::withHeaders($headers)
-            ->put('https://services.leadconnectorhq.com/store/shipping-carrier/' . $integration->shipping_carrier_id, $updateData);
+            ->put('https://services.leadconnectorhq.com/store/shipping-carrier/' . $locationToken->shipping_carrier_id, $updateData);
 
         if (!$response->successful()) {
             Log::error('Failed to update carrier in HighLevel', [
                 'location_id' => $locationId,
-                'carrier_id' => $integration->shipping_carrier_id,
+                'carrier_id' => $locationToken->shipping_carrier_id,
                 'status' => $response->status(),
                 'response' => $response->body()
             ]);
@@ -297,16 +293,15 @@ class CarrierRegistrationController extends Controller
      */
     public function deactivateCarrier($locationId)
     {
-        $integration = ShippingIntegration::where('location_id', $locationId)->first();
+        $locationToken = LocationTokens::where('location_id', $locationId)->first();
 
-        if (!$integration || !$integration->shipping_carrier_id) {
+        if (!$locationToken || !$locationToken->shipping_carrier_id) {
             return response()->json([
                 'error' => 'Carrier not registered'
             ], 404);
         }
 
-        $locationToken = getLocationToken($locationId);
-        if (!$locationToken || !$locationToken->access_token) {
+        if (!$locationToken->access_token) {
             return response()->json([
                 'error' => 'HighLevel access token not found'
             ], 400);
@@ -319,14 +314,14 @@ class CarrierRegistrationController extends Controller
         ];
 
         $response = Http::withHeaders($headers)
-            ->put('https://services.leadconnectorhq.com/store/shipping-carrier/' . $integration->shipping_carrier_id, [
+            ->put('https://services.leadconnectorhq.com/store/shipping-carrier/' . $locationToken->shipping_carrier_id, [
                 'isActive' => false
             ]);
 
         if (!$response->successful()) {
             Log::error('Failed to deactivate carrier in HighLevel', [
                 'location_id' => $locationId,
-                'carrier_id' => $integration->shipping_carrier_id,
+                'carrier_id' => $locationToken->shipping_carrier_id,
                 'status' => $response->status()
             ]);
 
@@ -337,7 +332,7 @@ class CarrierRegistrationController extends Controller
 
         Log::info('Carrier deactivated', [
             'location_id' => $locationId,
-            'carrier_id' => $integration->shipping_carrier_id
+            'carrier_id' => $locationToken->shipping_carrier_id
         ]);
 
         return response()->json([
@@ -350,16 +345,15 @@ class CarrierRegistrationController extends Controller
      */
     public function unregisterCarrier($locationId)
     {
-        $integration = ShippingIntegration::where('location_id', $locationId)->first();
+        $locationToken = LocationTokens::where('location_id', $locationId)->first();
 
-        if (!$integration || !$integration->shipping_carrier_id) {
+        if (!$locationToken || !$locationToken->shipping_carrier_id) {
             return response()->json([
                 'error' => 'Carrier not registered'
             ], 404);
         }
 
-        $locationToken = getLocationToken($locationId);
-        if (!$locationToken || !$locationToken->access_token) {
+        if (!$locationToken->access_token) {
             return response()->json([
                 'error' => 'HighLevel access token not found'
             ], 400);
@@ -372,12 +366,12 @@ class CarrierRegistrationController extends Controller
         ];
 
         $response = Http::withHeaders($headers)
-            ->delete('https://services.leadconnectorhq.com/store/shipping-carrier/' . $integration->shipping_carrier_id);
+            ->delete('https://services.leadconnectorhq.com/store/shipping-carrier/' . $locationToken->shipping_carrier_id);
 
         if (!$response->successful()) {
             Log::error('Failed to unregister carrier from HighLevel', [
                 'location_id' => $locationId,
-                'carrier_id' => $integration->shipping_carrier_id,
+                'carrier_id' => $locationToken->shipping_carrier_id,
                 'status' => $response->status()
             ]);
 
@@ -387,13 +381,13 @@ class CarrierRegistrationController extends Controller
         }
 
         // Clear carrier ID dari database
-        $integration->update([
+        $locationToken->update([
             'shipping_carrier_id' => null
         ]);
 
         Log::info('Carrier unregistered', [
             'location_id' => $locationId,
-            'integration_id' => $integration->id
+            'location_token_id' => $locationToken->id
         ]);
 
         return response()->json([
@@ -404,10 +398,9 @@ class CarrierRegistrationController extends Controller
     /**
      * Refresh token dan cuba semula request
      */
-    private function refreshTokenAndRetry($integration, $locationId, $carrierData)
+    private function refreshTokenAndRetry($locationToken, $locationId, $carrierData)
     {
-        $locationToken = getLocationToken($locationId);
-        if (!$locationToken || !$locationToken->refresh_token) {
+        if (!$locationToken->refresh_token) {
             return null;
         }
 
@@ -436,7 +429,7 @@ class CarrierRegistrationController extends Controller
             $carrierId = $carrierResponse['data']['_id'] ?? $carrierResponse['id'] ?? null;
 
             if ($carrierId) {
-                $integration->update(['shipping_carrier_id' => $carrierId]);
+                $locationToken->update(['shipping_carrier_id' => $carrierId]);
                 
                 return response()->json([
                     'message' => 'Carrier registered successfully after token refresh',
