@@ -49,8 +49,27 @@ const SettingsPage: React.FC = () => {
         })
         .catch(err => {
           console.error('Error decrypting context:', err);
-          // Fallback: guna test location ID untuk development
-          setLocationId('test_location_dev');
+          // Fallback: try to find integrated location from server
+          fetch('/api/find-integrated-location', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              attempted_location_id: 'context_decrypt_failed',
+              timestamp: new Date().toISOString()
+            })
+          })
+          .then(res => res.json())
+          .then(locationData => {
+            if (locationData.location_id) {
+              setLocationId(locationData.location_id);
+              console.log('Found integrated location:', locationData.location_id);
+            } else {
+              setLocationId('test_location_dev');
+            }
+          })
+          .catch(() => {
+            setLocationId('test_location_dev');
+          });
         });
       }
     };

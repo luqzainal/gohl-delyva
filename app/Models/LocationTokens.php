@@ -13,5 +13,13 @@ class LocationTokens extends Model
         'user_type',
         'access_token',
         'refresh_token',
+        'delyva_api_key',
+        'delyva_customer_id',
+        'delyva_api_secret',
+        'delyva_company_code',
+        'delyva_company_id',
+        'delyva_user_id',
+        'shipping_carrier_id',
+        'shipping_enabled',
     ];
 }
